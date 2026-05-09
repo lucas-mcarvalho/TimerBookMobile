@@ -100,7 +100,7 @@ function Field({ label, value, onChangeText, secureTextEntry, keyboardType, plac
         secureTextEntry={secureTextEntry}
         keyboardType={keyboardType}
         placeholder={placeholder}
-        placeholderTextColor="#9b9184"
+        placeholderTextColor="#64748b"
         multiline={multiline}
         style={[styles.input, multiline && styles.textArea]}
       />
@@ -157,7 +157,21 @@ function AuthScreen({ apiUrl, setApiUrl, onAuthenticated }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [goal, setGoal] = useState("20");
+  const [profilePhoto, setProfilePhoto] = useState(null);
   const [loading, setLoading] = useState(false);
+
+  async function pickProfilePhoto() {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8
+    });
+
+    if (!result.canceled && result.assets?.[0]) {
+      setProfilePhoto(result.assets[0]);
+    }
+  }
 
   async function persistApiUrl() {
     const cleanUrl = apiUrl.trim();
@@ -190,7 +204,8 @@ function AuthScreen({ apiUrl, setApiUrl, onAuthenticated }) {
           username: username.trim(),
           email: email.trim(),
           password,
-          dailyReadingGoalMinutes: goal ? Number(goal) : undefined
+          dailyReadingGoalMinutes: goal ? Number(goal) : undefined,
+          photo: profilePhoto
         });
         Alert.alert("Cadastro criado", "Agora faca login com sua conta.");
         setMode("login");
@@ -216,76 +231,97 @@ function AuthScreen({ apiUrl, setApiUrl, onAuthenticated }) {
       style={styles.authContainer}
     >
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.authContent}>
-        <View style={styles.brandMark}>
-          <Text style={styles.brandInitial}>T</Text>
-        </View>
-        <Text style={styles.authTitle}>TimerBook</Text>
-        <Text style={styles.authSubtitle}>
-          Controle suas leituras, sessoes e metas direto do celular.
-        </Text>
+        <View style={styles.loginFormCard}>
+          <View style={styles.logoBlock}>
+            <View style={styles.brandMark}>
+              <Text style={styles.brandInitial}>T</Text>
+            </View>
+            <Text style={styles.authTitle}>TimerBook</Text>
+          </View>
+          <Text style={styles.authSubtitle}>Acesse sua biblioteca pessoal</Text>
 
-        <View style={styles.segmented}>
-          <Pressable
-            onPress={() => setMode("login")}
-            style={[styles.segment, mode === "login" && styles.segmentActive]}
-          >
-            <Text style={[styles.segmentText, mode === "login" && styles.segmentTextActive]}>
-              Entrar
-            </Text>
-          </Pressable>
-          <Pressable
-            onPress={() => setMode("register")}
-            style={[styles.segment, mode === "register" && styles.segmentActive]}
-          >
-            <Text style={[styles.segmentText, mode === "register" && styles.segmentTextActive]}>
-              Cadastrar
-            </Text>
-          </Pressable>
-        </View>
+          <View style={styles.segmented}>
+            <Pressable
+              onPress={() => setMode("login")}
+              style={[styles.segment, mode === "login" && styles.segmentActive]}
+            >
+              <Text style={[styles.segmentText, mode === "login" && styles.segmentTextActive]}>
+                Entrar
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={() => setMode("register")}
+              style={[styles.segment, mode === "register" && styles.segmentActive]}
+            >
+              <Text style={[styles.segmentText, mode === "register" && styles.segmentTextActive]}>
+                Cadastrar
+              </Text>
+            </Pressable>
+          </View>
 
-        {mode === "register" && (
-          <Field label="Usuario" value={username} onChangeText={setUsername} />
-        )}
-        <Field
-          label="Email"
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-          placeholder="voce@email.com"
-        />
-        <Field
-          label="Senha"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-        />
-        {mode === "register" && (
+          {mode === "register" && (
+            <>
+              <Pressable onPress={pickProfilePhoto} style={styles.profilePhotoPicker}>
+                {profilePhoto?.uri ? (
+                  <Image source={{ uri: profilePhoto.uri }} style={styles.profilePhotoPreview} />
+                ) : (
+                  <View style={styles.profilePhotoPlaceholder}>
+                    <Text style={styles.profilePhotoInitial}>
+                      {(username || email || "T").slice(0, 1).toUpperCase()}
+                    </Text>
+                  </View>
+                )}
+                <View style={styles.profilePhotoTextBox}>
+                  <Text style={styles.profilePhotoTitle}>Foto de perfil</Text>
+                  <Text style={styles.profilePhotoDescription}>
+                    {profilePhoto ? "Toque para trocar a imagem" : "Toque para escolher uma imagem"}
+                  </Text>
+                </View>
+              </Pressable>
+              <Field label="Usuario" value={username} onChangeText={setUsername} />
+            </>
+          )}
           <Field
-            label="Meta diaria em minutos"
-            value={goal}
-            onChangeText={setGoal}
-            keyboardType="numeric"
+            label="Email"
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            placeholder="voce@email.com"
           />
-        )}
-
-        <PrimaryButton onPress={submit} disabled={loading}>
-          {loading ? "Aguarde..." : mode === "login" ? "Entrar" : "Criar conta"}
-        </PrimaryButton>
-
-        <View style={styles.apiBox}>
-          <Text style={styles.apiTitle}>Backend</Text>
-          <TextInput
-            value={apiUrl}
-            onChangeText={setApiUrl}
-            autoCapitalize="none"
-            autoCorrect={false}
-            placeholder="http://10.0.2.2:8080"
-            placeholderTextColor="#9b9184"
-            style={styles.input}
+          <Field
+            label="Senha"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
           />
-          <PrimaryButton onPress={persistApiUrl} variant="secondary">
-            Salvar endereco da API
+          {mode === "register" && (
+            <Field
+              label="Meta diaria em minutos"
+              value={goal}
+              onChangeText={setGoal}
+              keyboardType="numeric"
+            />
+          )}
+
+          <PrimaryButton onPress={submit} disabled={loading}>
+            {loading ? "Aguarde..." : mode === "login" ? "Entrar" : "Criar conta"}
           </PrimaryButton>
+
+          <View style={styles.apiBox}>
+            <Text style={styles.apiTitle}>Backend</Text>
+            <TextInput
+              value={apiUrl}
+              onChangeText={setApiUrl}
+              autoCapitalize="none"
+              autoCorrect={false}
+              placeholder="http://10.0.2.2:8080"
+              placeholderTextColor="#64748b"
+              style={styles.input}
+            />
+            <PrimaryButton onPress={persistApiUrl} variant="secondary">
+              Salvar endereco da API
+            </PrimaryButton>
+          </View>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -754,7 +790,7 @@ export default function App() {
   if (booting) {
     return (
       <SafeAreaView style={styles.loadingScreen}>
-        <ActivityIndicator color="#406c54" />
+        <ActivityIndicator color="#2ecc71" />
         <Text style={styles.loadingText}>Carregando TimerBook...</Text>
       </SafeAreaView>
     );
@@ -763,7 +799,7 @@ export default function App() {
   if (!authenticated) {
     return (
       <SafeAreaView style={styles.safeArea}>
-        <ExpoStatusBar style="dark" />
+        <ExpoStatusBar style="light" />
         <AuthScreen
           apiUrl={apiUrl}
           setApiUrl={setApiUrl}
@@ -775,7 +811,7 @@ export default function App() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ExpoStatusBar style="dark" />
+      <ExpoStatusBar style="light" />
       <View style={styles.appShell}>
         {activeTab === "home" && (
           <HomeScreen
@@ -850,7 +886,7 @@ export default function App() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#f7f3ea",
+    backgroundColor: "#0b1221",
     paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0
   },
   appShell: {
@@ -860,50 +896,70 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#f7f3ea"
+    backgroundColor: "#0b1221"
   },
   loadingText: {
     marginTop: 12,
-    color: "#5f5449",
+    color: "#a0aec0",
     fontSize: 15
   },
   authContainer: {
-    flex: 1
+    flex: 1,
+    backgroundColor: "#0b1221"
   },
   authContent: {
     flexGrow: 1,
     justifyContent: "center",
     padding: 24
   },
-  brandMark: {
-    width: 72,
-    height: 72,
-    borderRadius: 18,
+  loginFormCard: {
+    width: "100%",
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#1e2f4c",
+    backgroundColor: "#121e31",
+    padding: 24
+  },
+  logoBlock: {
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#406c54",
-    marginBottom: 18
+    gap: 14,
+    marginBottom: 14
+  },
+  brandMark: {
+    width: 58,
+    height: 58,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#2b5292",
+    borderWidth: 2,
+    borderColor: "#1a365d"
   },
   brandInitial: {
     color: "#ffffff",
-    fontSize: 34,
+    fontSize: 28,
     fontWeight: "800"
   },
   authTitle: {
-    color: "#27211d",
-    fontSize: 34,
-    fontWeight: "800"
+    color: "#ffffff",
+    fontSize: 32,
+    fontWeight: "800",
+    textAlign: "center"
   },
   authSubtitle: {
-    color: "#675d52",
+    color: "#a0aec0",
     fontSize: 16,
     lineHeight: 23,
-    marginTop: 8,
-    marginBottom: 24
+    marginBottom: 26,
+    textAlign: "center"
   },
   segmented: {
     flexDirection: "row",
-    backgroundColor: "#e6ded2",
+    backgroundColor: "#0b1221",
+    borderWidth: 1,
+    borderColor: "#1e2f4c",
     borderRadius: 8,
     padding: 4,
     marginBottom: 18
@@ -916,20 +972,67 @@ const styles = StyleSheet.create({
     borderRadius: 6
   },
   segmentActive: {
-    backgroundColor: "#ffffff"
+    backgroundColor: "#2b5292"
   },
   segmentText: {
-    color: "#675d52",
+    color: "#a0aec0",
     fontWeight: "700"
   },
   segmentTextActive: {
-    color: "#2f5944"
+    color: "#ffffff"
+  },
+  profilePhotoPicker: {
+    minHeight: 76,
+    borderWidth: 1,
+    borderColor: "#1e2f4c",
+    borderRadius: 8,
+    backgroundColor: "#0b1221",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    padding: 12,
+    marginBottom: 14
+  },
+  profilePhotoPreview: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: "#121e31"
+  },
+  profilePhotoPlaceholder: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#2b5292",
+    borderWidth: 2,
+    borderColor: "#1a365d"
+  },
+  profilePhotoInitial: {
+    color: "#ffffff",
+    fontSize: 22,
+    fontWeight: "800"
+  },
+  profilePhotoTextBox: {
+    flex: 1
+  },
+  profilePhotoTitle: {
+    color: "#ffffff",
+    fontSize: 15,
+    fontWeight: "800",
+    marginBottom: 3
+  },
+  profilePhotoDescription: {
+    color: "#a0aec0",
+    fontSize: 13,
+    lineHeight: 18
   },
   field: {
     marginBottom: 14
   },
   label: {
-    color: "#3c352f",
+    color: "#a0aec0",
     fontSize: 14,
     fontWeight: "700",
     marginBottom: 7
@@ -937,10 +1040,10 @@ const styles = StyleSheet.create({
   input: {
     minHeight: 48,
     borderWidth: 1,
-    borderColor: "#d7ccbd",
+    borderColor: "#1e2f4c",
     borderRadius: 8,
-    color: "#27211d",
-    backgroundColor: "#ffffff",
+    color: "#ffffff",
+    backgroundColor: "#0b1221",
     paddingHorizontal: 14,
     fontSize: 16
   },
@@ -954,17 +1057,17 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#406c54",
+    backgroundColor: "#2ecc71",
     paddingHorizontal: 18,
     marginTop: 8
   },
   secondaryButton: {
-    backgroundColor: "#ecf2ee",
+    backgroundColor: "#0b1221",
     borderWidth: 1,
-    borderColor: "#c8d8ce"
+    borderColor: "#1e2f4c"
   },
   dangerButton: {
-    backgroundColor: "#a6423b"
+    backgroundColor: "#ff4757"
   },
   disabledButton: {
     opacity: 0.6
@@ -978,18 +1081,18 @@ const styles = StyleSheet.create({
     fontWeight: "800"
   },
   secondaryButtonText: {
-    color: "#315942"
+    color: "#ffffff"
   },
   apiBox: {
     marginTop: 24,
     padding: 14,
     borderWidth: 1,
-    borderColor: "#ded4c6",
+    borderColor: "#1e2f4c",
     borderRadius: 8,
-    backgroundColor: "#fdfaf4"
+    backgroundColor: "#0b1221"
   },
   apiTitle: {
-    color: "#4f463e",
+    color: "#a0aec0",
     fontWeight: "800",
     marginBottom: 10
   },
@@ -998,14 +1101,14 @@ const styles = StyleSheet.create({
     paddingBottom: 112
   },
   eyebrow: {
-    color: "#406c54",
+    color: "#2ecc71",
     fontSize: 13,
     fontWeight: "800",
     textTransform: "uppercase",
     letterSpacing: 0
   },
   title: {
-    color: "#27211d",
+    color: "#ffffff",
     fontSize: 30,
     fontWeight: "800",
     marginTop: 4,
@@ -1020,19 +1123,19 @@ const styles = StyleSheet.create({
     width: "48%",
     minHeight: 100,
     borderRadius: 8,
-    backgroundColor: "#ffffff",
+    backgroundColor: "#121e31",
     borderWidth: 1,
-    borderColor: "#e4dbcf",
+    borderColor: "#1e2f4c",
     padding: 14,
     justifyContent: "space-between"
   },
   statValue: {
-    color: "#27211d",
+    color: "#ffffff",
     fontSize: 24,
     fontWeight: "800"
   },
   statLabel: {
-    color: "#685f55",
+    color: "#a0aec0",
     fontSize: 13,
     lineHeight: 18,
     marginTop: 8
@@ -1042,50 +1145,50 @@ const styles = StyleSheet.create({
     marginBottom: 12
   },
   sectionTitle: {
-    color: "#27211d",
+    color: "#ffffff",
     fontSize: 20,
     fontWeight: "800"
   },
   emptyState: {
     borderWidth: 1,
-    borderColor: "#e2d8ca",
+    borderColor: "#1e2f4c",
     borderRadius: 8,
-    backgroundColor: "#fffdfa",
+    backgroundColor: "#121e31",
     padding: 18
   },
   emptyTitle: {
-    color: "#27211d",
+    color: "#ffffff",
     fontSize: 17,
     fontWeight: "800",
     marginBottom: 6
   },
   emptyDescription: {
-    color: "#6b6258",
+    color: "#a0aec0",
     lineHeight: 21
   },
   readingRow: {
     padding: 14,
     borderRadius: 8,
-    backgroundColor: "#ffffff",
+    backgroundColor: "#121e31",
     borderWidth: 1,
-    borderColor: "#e4dbcf",
+    borderColor: "#1e2f4c",
     marginBottom: 10
   },
   readingTitle: {
-    color: "#27211d",
+    color: "#ffffff",
     fontWeight: "800",
     fontSize: 16
   },
   readingMeta: {
-    color: "#675d52",
+    color: "#a0aec0",
     marginTop: 5
   },
   bookCard: {
     flexDirection: "row",
     gap: 14,
-    backgroundColor: "#ffffff",
+    backgroundColor: "#121e31",
     borderWidth: 1,
-    borderColor: "#e4dbcf",
+    borderColor: "#1e2f4c",
     borderRadius: 8,
     padding: 12,
     marginBottom: 12
@@ -1094,7 +1197,7 @@ const styles = StyleSheet.create({
     width: 76,
     height: 108,
     borderRadius: 6,
-    backgroundColor: "#e8dfd3"
+    backgroundColor: "#0b1221"
   },
   coverFallback: {
     width: 76,
@@ -1102,7 +1205,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#406c54"
+    backgroundColor: "#2b5292"
   },
   coverFallbackText: {
     color: "#ffffff",
@@ -1113,19 +1216,19 @@ const styles = StyleSheet.create({
     flex: 1
   },
   bookTitle: {
-    color: "#27211d",
+    color: "#ffffff",
     fontSize: 17,
     fontWeight: "800"
   },
   bookDescription: {
-    color: "#675d52",
+    color: "#a0aec0",
     lineHeight: 20,
     marginTop: 5
   },
   progressBadge: {
     alignSelf: "flex-start",
-    color: "#315942",
-    backgroundColor: "#eaf3ed",
+    color: "#2ecc71",
+    backgroundColor: "rgba(46, 204, 113, 0.1)",
     borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 5,
@@ -1143,7 +1246,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#406c54",
+    backgroundColor: "#2ecc71",
     paddingHorizontal: 16
   },
   smallActionText: {
@@ -1155,11 +1258,11 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#f5e4e1",
+    backgroundColor: "rgba(255, 71, 87, 0.12)",
     paddingHorizontal: 16
   },
   smallDangerText: {
-    color: "#963d37",
+    color: "#ff4757",
     fontWeight: "800"
   },
   fileRow: {
@@ -1172,38 +1275,38 @@ const styles = StyleSheet.create({
     minHeight: 48,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: "#c8d8ce",
-    backgroundColor: "#ecf2ee",
+    borderColor: "#1e2f4c",
+    backgroundColor: "#121e31",
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 10
   },
   fileButtonText: {
-    color: "#315942",
+    color: "#ffffff",
     fontWeight: "800",
     textAlign: "center"
   },
   profileBox: {
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: "#e4dbcf",
-    backgroundColor: "#ffffff",
+    borderColor: "#1e2f4c",
+    backgroundColor: "#121e31",
     padding: 14,
     marginBottom: 18
   },
   profileLabel: {
-    color: "#6b6258",
+    color: "#a0aec0",
     fontWeight: "700",
     marginBottom: 4
   },
   profileValue: {
-    color: "#27211d",
+    color: "#ffffff",
     fontSize: 16,
     fontWeight: "800"
   },
   divider: {
     height: 1,
-    backgroundColor: "#ded4c6",
+    backgroundColor: "#1e2f4c",
     marginVertical: 22
   },
   tabBar: {
@@ -1214,9 +1317,9 @@ const styles = StyleSheet.create({
     minHeight: 64,
     borderRadius: 8,
     flexDirection: "row",
-    backgroundColor: "#ffffff",
+    backgroundColor: "#121e31",
     borderWidth: 1,
-    borderColor: "#ded4c6",
+    borderColor: "#1e2f4c",
     padding: 6
   },
   tab: {
@@ -1226,10 +1329,10 @@ const styles = StyleSheet.create({
     borderRadius: 6
   },
   activeTab: {
-    backgroundColor: "#406c54"
+    backgroundColor: "#2b5292"
   },
   tabText: {
-    color: "#6b6258",
+    color: "#a0aec0",
     fontSize: 12,
     fontWeight: "800"
   },
@@ -1238,7 +1341,7 @@ const styles = StyleSheet.create({
   },
   sessionPanel: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(39, 33, 29, 0.45)",
+    backgroundColor: "rgba(11, 18, 33, 0.82)",
     alignItems: "center",
     justifyContent: "center",
     padding: 20
@@ -1246,23 +1349,25 @@ const styles = StyleSheet.create({
   sessionCard: {
     width: "100%",
     borderRadius: 8,
-    backgroundColor: "#ffffff",
+    backgroundColor: "#121e31",
+    borderWidth: 1,
+    borderColor: "#1e2f4c",
     padding: 18
   },
   sessionEyebrow: {
-    color: "#406c54",
+    color: "#2ecc71",
     fontWeight: "800",
     textTransform: "uppercase",
     letterSpacing: 0,
     marginBottom: 5
   },
   sessionTitle: {
-    color: "#27211d",
+    color: "#ffffff",
     fontSize: 22,
     fontWeight: "800"
   },
   timer: {
-    color: "#27211d",
+    color: "#ffffff",
     fontSize: 42,
     fontWeight: "800",
     textAlign: "center",

@@ -4,9 +4,9 @@
     "slug": "timerbook-mobile",
     "version": "0.1.0",
     "orientation": "portrait",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "dark",
     "splash": {
-      "backgroundColor": "#f7f3ea"
+      "backgroundColor": "#0b1221"
     },
     "assetBundlePatterns": [
       "**/*"

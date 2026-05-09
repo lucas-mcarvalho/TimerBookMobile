@@ -20,7 +20,7 @@ export async function loginUser(email, password) {
   });
 }
 
-export async function registerUser({ username, email, password, dailyReadingGoalMinutes }) {
+export async function registerUser({ username, email, password, dailyReadingGoalMinutes, photo }) {
   const formData = new FormData();
   formData.append("username", username);
   formData.append("email", email);
@@ -28,6 +28,12 @@ export async function registerUser({ username, email, password, dailyReadingGoal
 
   if (dailyReadingGoalMinutes) {
     formData.append("dailyReadingGoalMinutes", String(dailyReadingGoalMinutes));
+  }
+
+  const photoPart = createFilePart(photo, "profile.jpg", "image/jpeg");
+
+  if (photoPart) {
+    formData.append("photo", photoPart);
   }
 
   return apiFetch("/auth/register", {
