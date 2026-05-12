@@ -44,11 +44,10 @@ import {
   updateReadingGoal
 } from "./src/api/timerbook";
 import { getDefaultApiUrl, setRuntimeApiUrl } from "./src/api/client";
+import { getDefaultWebUrl } from "./src/constants";
 import { formatDuration, formatTimer, toNumber } from "./src/utils/formatters";
  
 // ─── Constants ───────────────────────────────────────────────────────────────
-const WEB_URL = "http://192.168.10.102:5173";
- 
 const tabs = [
   { key: "home", label: "Inicio" },
   { key: "library", label: "Livros" },
@@ -149,7 +148,11 @@ function EmptyState({ title, description }) {
 // ─── Reader Screen (WebView) ──────────────────────────────────────────────────
 function ReaderScreen({ session, onClose }) {
   const webviewRef = useRef(null);
+  const loadTimeoutRef = useRef(null);
   const [webLoading, setWebLoading] = useState(true);
+  const [webError, setWebError] = useState(null);
+  const [readerLoadKey, setReaderLoadKey] = useState(0);
+  const isWebPlatform = Platform.OS === "web";
 
   // This runs BEFORE the page JS executes — so the token is
   // already in localStorage when the web app checks auth on mount
@@ -160,34 +163,128 @@ function ReaderScreen({ session, onClose }) {
 `;
   const handleMessage = (event) => {
     try {
-      const { type, page } = JSON.parse(event.nativeEvent.data);
+      const rawData = event?.nativeEvent?.data ?? event?.data;
+      const { type, page } = JSON.parse(rawData);
       if (type === "SESSION_END") onClose(page);
     } catch (err) {
       console.error("WebView message error:", err);
     }
   };
 
+  function clearLoadTimeout() {
+    if (loadTimeoutRef.current) {
+      clearTimeout(loadTimeoutRef.current);
+      loadTimeoutRef.current = null;
+    }
+  }
+
+  useEffect(() => {
+    console.log("Abrindo leitor:", session.webUrl);
+    setWebLoading(true);
+    setWebError(null);
+    clearLoadTimeout();
+
+    loadTimeoutRef.current = setTimeout(() => {
+      setWebLoading(false);
+      setWebError("O leitor demorou para responder. Confira se o front-end web esta rodando e se a URL acima esta acessivel.");
+    }, 15000);
+
+    return clearLoadTimeout;
+  }, [readerLoadKey, session.webUrl]);
+
+  useEffect(() => {
+    if (!isWebPlatform) return undefined;
+
+    function handleWindowMessage(event) {
+      handleMessage(event);
+    }
+
+    window.addEventListener("message", handleWindowMessage);
+    return () => window.removeEventListener("message", handleWindowMessage);
+  }, [isWebPlatform]);
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#0b1221" }}>
       <StatusBar barStyle="light-content" />
-      {webLoading && (
+      {(webLoading || webError) && (
         <View style={styles.readerLoading}>
-          <ActivityIndicator size="large" color="#2ecc71" />
-          <Text style={styles.readerLoadingText}>
-            Carregando {getBookTitle(session.book)}…
-          </Text>
+          {webError ? (
+            <>
+              <Text style={styles.readerErrorTitle}>Nao foi possivel abrir o leitor</Text>
+              <Text style={styles.readerLoadingText}>{webError}</Text>
+              <Text selectable style={styles.readerUrlText}>{session.webUrl}</Text>
+              <PrimaryButton
+                onPress={() => {
+                  setWebError(null);
+                  setWebLoading(true);
+                  setReaderLoadKey((current) => current + 1);
+                  if (!isWebPlatform) {
+                    webviewRef.current?.reload();
+                  }
+                }}
+              >
+                Tentar novamente
+              </PrimaryButton>
+              <PrimaryButton onPress={() => onClose(session.initialPage)} variant="secondary">
+                Voltar
+              </PrimaryButton>
+            </>
+          ) : (
+            <>
+              <ActivityIndicator size="large" color="#2ecc71" />
+              <Text style={styles.readerLoadingText}>
+                Carregando {getBookTitle(session.book)}...
+              </Text>
+            </>
+          )}
         </View>
       )}
-      <WebView
-        ref={webviewRef}
-        source={{ uri: session.webUrl }}
-        injectedJavaScriptBeforeContentLoaded={injectedJS}
-        onLoadEnd={() => setWebLoading(false)}
-        onMessage={handleMessage}
-        style={{ flex: 1 }}
-        javaScriptEnabled
-        domStorageEnabled
-      />
+      {isWebPlatform ? (
+        <iframe
+          key={readerLoadKey}
+          title={`Leitor ${getBookTitle(session.book)}`}
+          src={session.webUrl}
+          onLoad={() => {
+            clearLoadTimeout();
+            setWebLoading(false);
+          }}
+          onError={() => {
+            clearLoadTimeout();
+            setWebLoading(false);
+            setWebError("Nao foi possivel carregar o iframe do leitor.");
+          }}
+          style={styles.readerFrame}
+        />
+      ) : (
+        <WebView
+          key={readerLoadKey}
+          ref={webviewRef}
+          source={{ uri: session.webUrl }}
+          injectedJavaScriptBeforeContentLoaded={injectedJS}
+          onLoadStart={() => {
+            setWebLoading(true);
+            setWebError(null);
+          }}
+          onLoadEnd={() => {
+            clearLoadTimeout();
+            setWebLoading(false);
+          }}
+          onError={({ nativeEvent }) => {
+            clearLoadTimeout();
+            setWebLoading(false);
+            setWebError(nativeEvent.description || "Confira se o leitor web esta rodando na rede.");
+          }}
+          onHttpError={({ nativeEvent }) => {
+            clearLoadTimeout();
+            setWebLoading(false);
+            setWebError(`Erro HTTP ${nativeEvent.statusCode} ao abrir o leitor.`);
+          }}
+          onMessage={handleMessage}
+          style={{ flex: 1 }}
+          javaScriptEnabled
+          domStorageEnabled
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -204,7 +301,7 @@ function AuthScreen({ apiUrl, setApiUrl, onAuthenticated }) {
  
   async function pickProfilePhoto() {
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: [ImagePicker.MediaType.Images],
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.8
@@ -468,7 +565,7 @@ function LibraryScreen({ apiUrl, books, inProgress, onStartBook, onDeleteBook, o
 function NewBookScreen({ form, setForm, onCreateBook, loading }) {
   async function pickCover() {
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: [ImagePicker.MediaType.Images],
       allowsEditing: true,
       quality: 0.8
     });
@@ -682,7 +779,11 @@ export default function App() {
   // Opens the WebView reader
   async function handleStartBook(book, activeReading) {
     try {
-      
+      if (!book?.dataPath) {
+        Alert.alert("Leitura", "Este livro nao tem PDF cadastrado.");
+        return;
+      }
+
       const startPage = toNumber(activeReading?.currentPage, 0);
       const reading = await startReading(user.id, book.id, startPage);
       const sessions = await getSessionsByReadingId(reading.id);
@@ -693,8 +794,17 @@ export default function App() {
       }
  
       const token = await getStoredToken();
-      console.log("token", token);
-      const webUrl = `${WEB_URL}/leitor?bookId=${book.id}&sessionId=${currentSession.id}&page=${startPage}&token=${token}`;
+      const webBaseUrl = getDefaultWebUrl(apiUrl);
+      const query = [
+        ["bookId", book.id],
+        ["sessionId", currentSession.id],
+        ["page", startPage],
+        ["token", token]
+      ]
+        .filter(([, value]) => value !== null && value !== undefined)
+        .map(([key, value]) => `${key}=${encodeURIComponent(String(value))}`)
+        .join("&");
+      const webUrl = `${webBaseUrl}/leitor?${query}`;
  
       setReaderSession({
         book,
@@ -875,6 +985,42 @@ const styles = StyleSheet.create({
     marginTop: 12,
     color: "#a0aec0",
     fontSize: 15
+  },
+  readerLoading: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 2,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#0b1221",
+    padding: 24
+  },
+  readerLoadingText: {
+    color: "#a0aec0",
+    fontSize: 15,
+    lineHeight: 22,
+    marginTop: 12,
+    marginBottom: 12,
+    textAlign: "center"
+  },
+  readerErrorTitle: {
+    color: "#ffffff",
+    fontSize: 20,
+    fontWeight: "800",
+    marginBottom: 4,
+    textAlign: "center"
+  },
+  readerUrlText: {
+    color: "#94a3b8",
+    fontSize: 12,
+    lineHeight: 18,
+    marginBottom: 12,
+    textAlign: "center"
+  },
+  readerFrame: {
+    flex: 1,
+    width: "100%",
+    height: "100%",
+    borderWidth: 0
   },
   authContainer: {
     flex: 1,

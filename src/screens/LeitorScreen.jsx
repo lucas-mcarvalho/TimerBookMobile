@@ -1,10 +1,10 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { SafeAreaView, ActivityIndicator, StyleSheet } from "react-native";
 import { WebView } from "react-native-webview";
 import { useRoute, useNavigation } from "@react-navigation/native";
 import { finishReadingSession } from "../api/timerbook";
-import { getStoredToken } from "../utils/storage";
-import { WEB_URL } from "../constants"; // "http://192.168.10.102:5173"
+import { getStoredApiUrl, getStoredToken } from "../utils/storage";
+import { getDefaultWebUrl } from "../constants";
 
 export default function LeitorScreen() {
   const route = useRoute();
@@ -36,37 +36,55 @@ export default function LeitorScreen() {
     }
   };
 
-  // Inject the auth token into the web app's localStorage on load
-  const injectAuth = async () => {
-    const token = await getStoredToken();
-    if (token && webviewRef.current) {
-      webviewRef.current.injectJavaScript(`
-        localStorage.setItem("timerbook.accessToken", "${token}");
-        true;
-      `);
-    }
-  };
+  // Keep auth ready before the web app checks ProtectedRoute.
+  const [token, setToken] = useState(null);
+  const [tokenLoaded, setTokenLoaded] = useState(false);
+  const [webBaseUrl, setWebBaseUrl] = useState(getDefaultWebUrl());
 
-  const uri = `${WEB_URL}/leitor?bookId=${book.id}&sessionId=${sessionId}&page=${initialPage}`;
+  useEffect(() => {
+    Promise.all([getStoredToken(), getStoredApiUrl()])
+      .then(([storedToken, storedApiUrl]) => {
+        setToken(storedToken);
+        setWebBaseUrl(getDefaultWebUrl(storedApiUrl));
+      })
+      .catch(() => setToken(null))
+      .finally(() => setTokenLoaded(true));
+  }, []);
+
+  const query = [
+    ["bookId", book.id],
+    ["sessionId", sessionId],
+    ["page", initialPage],
+    ["token", token]
+  ]
+    .filter(([, value]) => value !== null && value !== undefined)
+    .map(([key, value]) => `${key}=${encodeURIComponent(String(value))}`)
+    .join("&");
+  const uri = `${webBaseUrl}/leitor?${query}`;
+  const injectedAuth = token ? `
+    localStorage.setItem("token", ${JSON.stringify(token)});
+    localStorage.setItem("refreshToken", ${JSON.stringify(token)});
+    true;
+  ` : "true;";
 
   return (
     <SafeAreaView style={styles.root}>
       {loading && (
         <ActivityIndicator size="large" style={styles.spinner} />
       )}
-      <WebView
-        ref={webviewRef}
-        source={{ uri }}
-        onLoadEnd={() => {
-          setLoading(false);
-          injectAuth();
-        }}
-        onMessage={handleMessage}
-        style={styles.webview}
-        javaScriptEnabled
-        domStorageEnabled
-        startInLoadingState={false}
-      />
+      {tokenLoaded && (
+        <WebView
+          ref={webviewRef}
+          source={{ uri }}
+          injectedJavaScriptBeforeContentLoaded={injectedAuth}
+          onLoadEnd={() => setLoading(false)}
+          onMessage={handleMessage}
+          style={styles.webview}
+          javaScriptEnabled
+          domStorageEnabled
+          startInLoadingState={false}
+        />
+      )}
     </SafeAreaView>
   );
 }

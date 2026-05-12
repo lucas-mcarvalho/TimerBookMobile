@@ -51,6 +51,27 @@ http://192.168.0.10:8080
 
 Tambem da para salvar esse endereco na tela de login ou na aba Perfil.
 
+## URL do leitor web
+
+O leitor de PDF roda dentro de um WebView usando o front-end web. Se
+`EXPO_PUBLIC_WEB_URL` nao estiver configurada, o app usa o mesmo host da API e
+troca a porta para `5173`. Exemplo: com `EXPO_PUBLIC_API_URL=http://192.168.0.10:8080`,
+o leitor tenta abrir `http://192.168.0.10:5173`.
+
+Se o Vite estiver em outra porta, configure a URL do leitor no `.env`:
+
+```text
+EXPO_PUBLIC_WEB_URL=http://192.168.0.10:5173
+```
+
+Use o mesmo IP em `EXPO_PUBLIC_API_URL`, em `VITE_API_BASE_URL` no front-end web,
+e no `cors.originPatterns` do backend, incluindo a porta exata do Vite. Ao rodar
+o Vite para acessar pelo celular, inicie com host aberto na rede, por exemplo:
+
+```bash
+npm run dev -- --host 0.0.0.0
+```
+
 ## Credenciais
 
 Credenciais reais nao devem ser commitadas. O repositorio deve ter apenas arquivos de exemplo, como `.env.example`, e cada pessoa cria o proprio `.env` depois de clonar.
