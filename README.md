@@ -30,12 +30,7 @@ Depois abra no emulador Android, iOS ou no app Expo Go.
 
 ## URL do backend
 
-O app tenta usar estes enderecos por padrao:
-
-- Android Emulator: `http://10.0.2.2:8080`
-- iOS Simulator/Web: `http://localhost:8080`
-
-Voce tambem pode criar um arquivo `.env` local a partir do exemplo:
+Crie um arquivo `.env` local a partir do exemplo:
 
 ```bash
 cp .env.example .env

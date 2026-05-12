@@ -1,4 +1,3 @@
-import { Platform } from "react-native";
 import {
   clearSessionStorage,
   getStoredApiUrl,
@@ -9,16 +8,12 @@ import {
 
 let runtimeApiUrl = null;
 
+function stripTrailingSlash(url) {
+  return String(url || "").trim().replace(/\/+$/, "");
+}
+
 export function getDefaultApiUrl() {
-  if (process.env.EXPO_PUBLIC_API_URL) {
-    return process.env.EXPO_PUBLIC_API_URL;
-  }
-
-  if (Platform.OS === "android") {
-    return "http://10.0.2.2:8080";
-  }
-
-  return "http://localhost:8080";
+  return stripTrailingSlash(process.env.EXPO_PUBLIC_API_URL);
 }
 
 export async function getApiUrl() {
@@ -27,16 +22,16 @@ export async function getApiUrl() {
   }
 
   const storedUrl = await getStoredApiUrl();
-  runtimeApiUrl = storedUrl || getDefaultApiUrl();
+  runtimeApiUrl = stripTrailingSlash(storedUrl || getDefaultApiUrl());
   return runtimeApiUrl;
 }
 
 export function setRuntimeApiUrl(url) {
-  runtimeApiUrl = url;
+  runtimeApiUrl = stripTrailingSlash(url);
 }
 
 function normalizeUrl(baseUrl, path) {
-  const cleanBase = baseUrl.replace(/\/+$/, "");
+  const cleanBase = stripTrailingSlash(baseUrl);
   const cleanPath = path.startsWith("/") ? path : `/${path}`;
   return `${cleanBase}${cleanPath}`;
 }
@@ -148,5 +143,5 @@ export function resolveMediaUrl(path) {
   }
 
   const cleanPath = path.startsWith("/") ? path : `/${path}`;
-  return getApiUrl().then((baseUrl) => `${baseUrl.replace(/\/+$/, "")}${cleanPath}`);
+  return getApiUrl().then((baseUrl) => `${stripTrailingSlash(baseUrl)}${cleanPath}`);
 }

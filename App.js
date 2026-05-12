@@ -440,7 +440,7 @@ function AuthScreen({ apiUrl, setApiUrl, onAuthenticated }) {
               onChangeText={setApiUrl}
               autoCapitalize="none"
               autoCorrect={false}
-              placeholder="http://10.0.2.2:8080"
+              placeholder={getDefaultApiUrl()}
               placeholderTextColor="#64748b"
               style={styles.input}
             />
@@ -649,7 +649,7 @@ function ProfileScreen({ apiUrl, setApiUrl, user, onSaveApiUrl, onSaveGoal, onLo
         label="Endereco do backend"
         value={apiUrl}
         onChangeText={setApiUrl}
-        placeholder="http://10.0.2.2:8080"
+        placeholder={getDefaultApiUrl()}
       />
       <PrimaryButton onPress={onSaveApiUrl} variant="secondary">
         Salvar API
