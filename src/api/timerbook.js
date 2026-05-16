@@ -20,6 +20,14 @@ export async function loginUser(email, password) {
   });
 }
 
+export async function requestPasswordReset(email) {
+  return apiFetch("/auth/forgot-password", {
+    method: "POST",
+    skipAuth: true,
+    body: { email }
+  });
+}
+
 export async function registerUser({ username, email, password, dailyReadingGoalMinutes, photo }) {
   const formData = new FormData();
   formData.append("username", username);

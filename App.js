@@ -36,6 +36,7 @@ import {
   getMe,
   getSessionsByReadingId,
   loginUser,
+  requestPasswordReset,
   registerUser,
   startReading,
   startReadingSession,
@@ -187,6 +188,29 @@ function AuthScreen({ apiUrl, setApiUrl, onAuthenticated }) {
   }
 
   async function submit() {
+    if (mode === "forgotPassword") {
+      if (!email.trim()) {
+        Alert.alert("Campos obrigatorios", "Informe seu email.");
+        return;
+      }
+
+      setLoading(true);
+      try {
+        await requestPasswordReset(email.trim());
+        Alert.alert(
+          "Recuperacao enviada",
+          "Se o email existir, voce recebera as instrucoes para redefinir a senha."
+        );
+        setMode("login");
+      } catch (error) {
+        Alert.alert("TimerBook", getErrorMessage(error));
+      } finally {
+        setLoading(false);
+      }
+
+      return;
+    }
+
     if (!email.trim() || !password.trim()) {
       Alert.alert("Campos obrigatorios", "Informe email e senha.");
       return;
@@ -288,12 +312,27 @@ function AuthScreen({ apiUrl, setApiUrl, onAuthenticated }) {
             keyboardType="email-address"
             placeholder="voce@email.com"
           />
-          <Field
-            label="Senha"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-          />
+          {mode !== "forgotPassword" && (
+            <Field
+              label="Senha"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+            />
+          )}
+          {mode === "login" && (
+            <Pressable onPress={() => setMode("forgotPassword")} style={styles.forgotPasswordLink}>
+              <Text style={styles.forgotPasswordText}>Esqueci minha senha</Text>
+            </Pressable>
+          )}
+          {mode === "forgotPassword" && (
+            <View style={styles.forgotPasswordBox}>
+              <Text style={styles.forgotPasswordTitle}>Recuperar acesso</Text>
+              <Text style={styles.forgotPasswordDescription}>
+                Informe seu email para receber o link de redefinicao.
+              </Text>
+            </View>
+          )}
           {mode === "register" && (
             <Field
               label="Meta diaria em minutos"
@@ -304,8 +343,20 @@ function AuthScreen({ apiUrl, setApiUrl, onAuthenticated }) {
           )}
 
           <PrimaryButton onPress={submit} disabled={loading}>
-            {loading ? "Aguarde..." : mode === "login" ? "Entrar" : "Criar conta"}
+            {loading
+              ? "Aguarde..."
+              : mode === "login"
+                ? "Entrar"
+                : mode === "register"
+                  ? "Criar conta"
+                  : "Enviar link"}
           </PrimaryButton>
+
+          {mode === "forgotPassword" && (
+            <PrimaryButton onPress={() => setMode("login")} variant="secondary">
+              Voltar para login
+            </PrimaryButton>
+          )}
 
           <View style={styles.apiBox}>
             <Text style={styles.apiTitle}>Backend</Text>
@@ -980,6 +1031,36 @@ const styles = StyleSheet.create({
   },
   segmentTextActive: {
     color: "#ffffff"
+  },
+  forgotPasswordLink: {
+    alignSelf: "flex-start",
+    marginTop: 4,
+    marginBottom: 10
+  },
+  forgotPasswordText: {
+    color: "#6ee7b7",
+    fontSize: 14,
+    fontWeight: "600"
+  },
+  forgotPasswordBox: {
+    marginTop: 4,
+    marginBottom: 8,
+    padding: 14,
+    borderRadius: 14,
+    backgroundColor: "rgba(110, 231, 183, 0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(110, 231, 183, 0.25)"
+  },
+  forgotPasswordTitle: {
+    color: "#ecfdf5",
+    fontSize: 15,
+    fontWeight: "700"
+  },
+  forgotPasswordDescription: {
+    marginTop: 6,
+    color: "#cbd5e1",
+    fontSize: 13,
+    lineHeight: 18
   },
   profilePhotoPicker: {
     minHeight: 76,
