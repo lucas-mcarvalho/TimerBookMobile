@@ -1,3 +1,8 @@
+import { StyleSheet, Text, View, TouchableOpacity, LayoutAnimation, Platform, UIManager } from 'react-native';
+
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -5,16 +10,12 @@ import {
   FlatList,
   Image,
   KeyboardAvoidingView,
-  Platform,
   Pressable,
   RefreshControl,
   SafeAreaView,
   ScrollView,
   StatusBar,
-  StyleSheet,
-  Text,
-  TextInput,
-  View
+  TextInput
 } from "react-native";
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
@@ -160,6 +161,11 @@ function AuthScreen({ apiUrl, setApiUrl, onAuthenticated }) {
   const [profilePhoto, setProfilePhoto] = useState(null);
   const [loading, setLoading] = useState(false);
 
+  function toggleMode(newMode) {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setMode(newMode);
+  }
+
   async function pickProfilePhoto() {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -208,7 +214,7 @@ function AuthScreen({ apiUrl, setApiUrl, onAuthenticated }) {
           photo: profilePhoto
         });
         Alert.alert("Cadastro criado", "Agora faca login com sua conta.");
-        setMode("login");
+        toggleMode("login");
         return;
       }
 
@@ -242,7 +248,7 @@ function AuthScreen({ apiUrl, setApiUrl, onAuthenticated }) {
 
           <View style={styles.segmented}>
             <Pressable
-              onPress={() => setMode("login")}
+              onPress={() => toggleMode("login")}
               style={[styles.segment, mode === "login" && styles.segmentActive]}
             >
               <Text style={[styles.segmentText, mode === "login" && styles.segmentTextActive]}>
@@ -250,7 +256,7 @@ function AuthScreen({ apiUrl, setApiUrl, onAuthenticated }) {
               </Text>
             </Pressable>
             <Pressable
-              onPress={() => setMode("register")}
+              onPress={() => toggleMode("register")}
               style={[styles.segment, mode === "register" && styles.segmentActive]}
             >
               <Text style={[styles.segmentText, mode === "register" && styles.segmentTextActive]}>
@@ -787,6 +793,12 @@ export default function App() {
     setSession(null);
   }
 
+  // Nova função de mudança de aba animada
+  function handleTabPress(key) {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setActiveTab(key);
+  }
+
   if (booting) {
     return (
       <SafeAreaView style={styles.loadingScreen}>
@@ -859,7 +871,7 @@ export default function App() {
           return (
             <Pressable
               key={tab.key}
-              onPress={() => setActiveTab(tab.key)}
+              onPress={() => handleTabPress(tab.key)} // Aplicando a função animada aqui
               style={[styles.tab, active && styles.activeTab]}
             >
               <Text style={[styles.tabText, active && styles.activeTabText]}>
@@ -884,6 +896,10 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
+
+  // ==========================================
+  // CONFIGURAÇÕES GLOBAIS E ESTRUTURA
+  // ==========================================
   safeArea: {
     flex: 1,
     backgroundColor: "#0b1221",
@@ -903,6 +919,14 @@ const styles = StyleSheet.create({
     color: "#a0aec0",
     fontSize: 15
   },
+  screenContent: {
+    padding: 20,
+    paddingBottom: 112
+  },
+
+  // ==========================================
+  // TELA DE AUTENTICAÇÃO (LOGIN E CADASTRO)
+  // ==========================================
   authContainer: {
     flex: 1,
     backgroundColor: "#0b1221"
@@ -940,69 +964,92 @@ const styles = StyleSheet.create({
   brandInitial: {
     color: "#ffffff",
     fontSize: 28,
-    fontWeight: "800"
+    fontWeight: "900",
+    letterSpacing: 1,
   },
   authTitle: {
     color: "#ffffff",
     fontSize: 32,
     fontWeight: "800",
-    textAlign: "center"
+    textAlign: "center",
+    letterSpacing: -0.5,
   },
   authSubtitle: {
-    color: "#a0aec0",
+    color: "#94a3b8",
     fontSize: 16,
-    lineHeight: 23,
-    marginBottom: 26,
+    lineHeight: 24,
+    marginBottom: 32,
     textAlign: "center"
   },
+
+  // ==========================================
+  // SELETORES (LOGIN / CADASTRO)
+  // ==========================================
   segmented: {
     flexDirection: "row",
-    backgroundColor: "#0b1221",
+    backgroundColor: "#060b14",
     borderWidth: 1,
     borderColor: "#1e2f4c",
-    borderRadius: 8,
-    padding: 4,
-    marginBottom: 18
+    borderRadius: 16,
+    padding: 6,
+    marginBottom: 24
   },
   segment: {
     flex: 1,
-    minHeight: 42,
+    minHeight: 44,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 6
+    borderRadius: 10
   },
   segmentActive: {
-    backgroundColor: "#2b5292"
+    backgroundColor: "#2b5292",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
   },
   segmentText: {
-    color: "#a0aec0",
-    fontWeight: "700"
+    color: "#64748b",
+    fontWeight: "600",
+    letterSpacing: 0.5
   },
   segmentTextActive: {
-    color: "#ffffff"
+    color: "#ffffff",
+    fontWeight: "800"
   },
+
+  // ==========================================
+  // UPLOAD DE FOTO DE PERFIL
+  // ==========================================
   profilePhotoPicker: {
-    minHeight: 76,
-    borderWidth: 1,
-    borderColor: "#1e2f4c",
-    borderRadius: 8,
-    backgroundColor: "#0b1221",
+    minHeight: 84,
+    borderWidth: 1.5,
+    borderColor: "#2b5292",
+    borderStyle: "dashed",
+    borderRadius: 16,
+    backgroundColor: "rgba(43, 82, 146, 0.05)",
     flexDirection: "row",
     alignItems: "center",
-    gap: 14,
-    padding: 12,
-    marginBottom: 14
+    gap: 16,
+    padding: 16,
+    marginBottom: 20
   },
   profilePhotoPreview: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: "#121e31"
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: "#121e31",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 3,
   },
   profilePhotoPlaceholder: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "#2b5292",
@@ -1019,15 +1066,19 @@ const styles = StyleSheet.create({
   },
   profilePhotoTitle: {
     color: "#ffffff",
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: "800",
-    marginBottom: 3
+    marginBottom: 4
   },
   profilePhotoDescription: {
-    color: "#a0aec0",
+    color: "#94a3b8",
     fontSize: 13,
     lineHeight: 18
   },
+
+  // ==========================================
+  // INPUTS, FORMULÁRIOS E BOTÕES GLOBAIS
+  // ==========================================
   field: {
     marginBottom: 14
   },
@@ -1083,63 +1134,61 @@ const styles = StyleSheet.create({
   secondaryButtonText: {
     color: "#ffffff"
   },
-  apiBox: {
-    marginTop: 24,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: "#1e2f4c",
-    borderRadius: 8,
-    backgroundColor: "#0b1221"
-  },
-  apiTitle: {
-    color: "#a0aec0",
-    fontWeight: "800",
-    marginBottom: 10
-  },
-  screenContent: {
-    padding: 20,
-    paddingBottom: 112
-  },
+
+  // ==========================================
+  // TELA PRINCIPAL E ESTATÍSTICAS
+  // ==========================================
   eyebrow: {
     color: "#2ecc71",
     fontSize: 13,
     fontWeight: "800",
     textTransform: "uppercase",
-    letterSpacing: 0
+    letterSpacing: 1.5
   },
   title: {
     color: "#ffffff",
-    fontSize: 30,
+    fontSize: 32,
     fontWeight: "800",
     marginTop: 4,
-    marginBottom: 18
+    marginBottom: 24,
+    letterSpacing: -0.5
   },
   statsGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 12
+    gap: 16
   },
   statCard: {
-    width: "48%",
-    minHeight: 100,
-    borderRadius: 8,
+    width: "47%",
+    minHeight: 110,
+    borderRadius: 16,
     backgroundColor: "#121e31",
     borderWidth: 1,
     borderColor: "#1e2f4c",
-    padding: 14,
-    justifyContent: "space-between"
+    padding: 16,
+    justifyContent: "space-between",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 5,
+    elevation: 4,
   },
   statValue: {
     color: "#ffffff",
-    fontSize: 24,
-    fontWeight: "800"
+    fontSize: 28,
+    fontWeight: "900"
   },
   statLabel: {
     color: "#a0aec0",
     fontSize: 13,
+    fontWeight: "600",
     lineHeight: 18,
     marginTop: 8
   },
+
+  // ==========================================
+  // LISTA DE LIVROS E LEITURAS
+  // ==========================================
   sectionHeader: {
     marginTop: 24,
     marginBottom: 12
@@ -1236,6 +1285,10 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "800"
   },
+
+  // ==========================================
+  // AÇÕES MENORES E ARQUIVOS (LIVROS)
+  // ==========================================
   inlineActions: {
     flexDirection: "row",
     gap: 8,
@@ -1286,6 +1339,10 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     textAlign: "center"
   },
+
+  // ==========================================
+  // TELA DE PERFIL E CONFIGURAÇÕES
+  // ==========================================
   profileBox: {
     borderRadius: 8,
     borderWidth: 1,
@@ -1309,6 +1366,23 @@ const styles = StyleSheet.create({
     backgroundColor: "#1e2f4c",
     marginVertical: 22
   },
+  apiBox: {
+    marginTop: 24,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: "#1e2f4c",
+    borderRadius: 8,
+    backgroundColor: "#0b1221"
+  },
+  apiTitle: {
+    color: "#a0aec0",
+    fontWeight: "800",
+    marginBottom: 10
+  },
+
+  // ==========================================
+  // NAVEGAÇÃO INFERIOR (TAB BAR)
+  // ==========================================
   tabBar: {
     position: "absolute",
     left: 14,
@@ -1339,6 +1413,10 @@ const styles = StyleSheet.create({
   activeTabText: {
     color: "#ffffff"
   },
+
+  // ==========================================
+  // SESSÃO DE LEITURA (CRONÔMETRO)
+  // ==========================================
   sessionPanel: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(11, 18, 33, 0.82)",
