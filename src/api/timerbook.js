@@ -127,4 +127,10 @@ export async function finishReadingSession(sessionId, endPage) {
       endPage: Number(endPage) || 0
     }
   });
+} 
+
+export async function getReadingStats(readingId) {
+  return apiFetch(`/stats/reading/${readingId}?includeOngoing=true`);
 }
+
+

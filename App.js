@@ -21,6 +21,8 @@ import { WebView } from "react-native-webview";
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
 import { StatusBar as ExpoStatusBar } from "expo-status-bar";
+import HomeGuide from "./src/components/HomeGuide";
+import Estatisticas from "./src/components/estatisticas";
 import {
   clearSessionStorage,
   getStoredApiUrl,
@@ -452,6 +454,16 @@ function LibraryScreen({ apiUrl, books, inProgress, onStartBook, onDeleteBook, o
                 <Pressable onPress={() => onStartBook(item, reading)} style={styles.smallAction}>
                   <Text style={styles.smallActionText}>Ler</Text>
                 </Pressable>
+                
+                {reading && (
+                  <Pressable 
+                    onPress={() => onViewStats(reading.id)} 
+                    style={[styles.smallAction, { backgroundColor: '#3b82f6' }]}
+                  >
+                    <Text style={styles.smallActionText}>Estatísticas</Text>
+                  </Pressable>
+                )}
+
                 <Pressable onPress={() => onDeleteBook(item)} style={styles.smallDangerAction}>
                   <Text style={styles.smallDangerText}>Excluir</Text>
                 </Pressable>
@@ -794,44 +806,56 @@ export default function App() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <ExpoStatusBar style="light" />
+      
       <View style={styles.appShell}>
-        {activeTab === "home" && (
-          <HomeScreen
-            user={user}
-            stats={stats}
-            inProgress={inProgress}
-            onRefresh={loadAppData}
-            refreshing={refreshing}
+        {statsReadingId ? (
+          <Estatisticas 
+            readingId={statsReadingId} 
+            onBack={() => setStatsReadingId(null)} 
           />
-        )}
-        {activeTab === "library" && (
-          <LibraryScreen
-            apiUrl={apiUrl}
-            books={books}
-            inProgress={inProgress}
-            onStartBook={handleStartBook}
-            onDeleteBook={handleDeleteBook}
-            onRefresh={loadAppData}
-            refreshing={refreshing}
-          />
-        )}
-        {activeTab === "newBook" && (
-          <NewBookScreen
-            form={bookForm}
-            setForm={setBookForm}
-            onCreateBook={handleCreateBook}
-            loading={savingBook}
-          />
-        )}
-        {activeTab === "profile" && (
-          <ProfileScreen
-            apiUrl={apiUrl}
-            setApiUrl={setApiUrl}
-            user={user}
-            onSaveApiUrl={persistApiUrl}
-            onSaveGoal={handleSaveGoal}
-            onLogout={logout}
-          />
+        ) : (
+          <>
+            {activeTab === "home" && (
+              <HomeScreen
+                user={user}
+                stats={stats}
+                inProgress={inProgress}
+                onRefresh={loadAppData}
+                refreshing={refreshing}
+                onNavigateProfile={() => setActiveTab("profile")}
+              />
+            )}
+            {activeTab === "library" && (
+              <LibraryScreen
+                apiUrl={apiUrl}
+                books={books}
+                inProgress={inProgress}
+                onStartBook={handleStartBook}
+                onDeleteBook={handleDeleteBook}
+                onRefresh={loadAppData}
+                refreshing={refreshing}
+                onViewStats={(id) => setStatsReadingId(id)}
+              />
+            )}
+            {activeTab === "newBook" && (
+              <NewBookScreen
+                form={bookForm}
+                setForm={setBookForm}
+                onCreateBook={handleCreateBook}
+                loading={savingBook}
+              />
+            )}
+            {activeTab === "profile" && (
+              <ProfileScreen
+                apiUrl={apiUrl}
+                setApiUrl={setApiUrl}
+                user={user}
+                onSaveApiUrl={persistApiUrl}
+                onSaveGoal={handleSaveGoal}
+                onLogout={logout}
+              />
+            )}
+          </>
         )}
       </View>
  
@@ -853,7 +877,7 @@ export default function App() {
       </View>
     </SafeAreaView>
   );
-}
+} 
 
 
 const styles = StyleSheet.create({
