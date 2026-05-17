@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useState } from "react";
+
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -16,6 +17,7 @@ import {
   TextInput,
   View
 } from "react-native";
+import { WebView } from "react-native-webview";
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
 import { StatusBar as ExpoStatusBar } from "expo-status-bar";
@@ -45,53 +47,51 @@ import {
 } from "./src/api/timerbook";
 import { getDefaultApiUrl, setRuntimeApiUrl } from "./src/api/client";
 import { formatDuration, formatTimer, toNumber } from "./src/utils/formatters";
-
+ 
+// ─── Constants ───────────────────────────────────────────────────────────────
+const WEB_URL = "http://192.168.10.102:5173";
+ 
 const tabs = [
   { key: "home", label: "Inicio" },
   { key: "library", label: "Livros" },
   { key: "newBook", label: "Novo" },
   { key: "profile", label: "Perfil" }
 ];
-
+ 
 const initialBookForm = {
   name: "",
   description: "",
   cover: null,
   pdf: null
 };
-
+ 
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 function getErrorMessage(error) {
   return error?.message || "Algo saiu do esperado. Tente novamente.";
 }
-
+ 
 function getBookTitle(book) {
   return book?.name || book?.title || "Livro sem titulo";
 }
-
+ 
 function getBookCover(book, apiUrl) {
   const cover = book?.coverUrl || book?.coverPath;
-
-  if (!cover) {
-    return null;
-  }
-
-  if (/^https?:\/\//i.test(cover)) {
-    return cover;
-  }
-
+  if (!cover) return null;
+  if (/^https?:\/\//i.test(cover)) return cover;
   return `${apiUrl.replace(/\/+$/, "")}${cover.startsWith("/") ? cover : `/${cover}`}`;
 }
-
+ 
 function sortSessionsByStartDesc(sessions) {
   return [...(Array.isArray(sessions) ? sessions : [])].sort(
     (a, b) => new Date(b.startedAt || 0) - new Date(a.startedAt || 0)
   );
 }
-
+ 
 function getReadingBookId(reading) {
   return reading?.book?.id ?? reading?.bookId ?? reading?.book_id;
 }
-
+ 
+// ─── Shared UI Components ────────────────────────────────────────────────────
 function Field({ label, value, onChangeText, secureTextEntry, keyboardType, placeholder, multiline }) {
   return (
     <View style={styles.field}>
@@ -109,7 +109,7 @@ function Field({ label, value, onChangeText, secureTextEntry, keyboardType, plac
     </View>
   );
 }
-
+ 
 function PrimaryButton({ children, onPress, disabled, variant = "primary" }) {
   return (
     <Pressable
@@ -123,18 +123,13 @@ function PrimaryButton({ children, onPress, disabled, variant = "primary" }) {
         pressed && !disabled && styles.pressedButton
       ]}
     >
-      <Text
-        style={[
-          styles.buttonText,
-          variant === "secondary" && styles.secondaryButtonText
-        ]}
-      >
+      <Text style={[styles.buttonText, variant === "secondary" && styles.secondaryButtonText]}>
         {children}
       </Text>
     </Pressable>
   );
 }
-
+ 
 function StatCard({ label, value }) {
   return (
     <View style={styles.statCard}>
@@ -143,7 +138,7 @@ function StatCard({ label, value }) {
     </View>
   );
 }
-
+ 
 function EmptyState({ title, description }) {
   return (
     <View style={styles.emptyState}>
@@ -152,7 +147,54 @@ function EmptyState({ title, description }) {
     </View>
   );
 }
+ 
+// ─── Reader Screen (WebView) ──────────────────────────────────────────────────
+function ReaderScreen({ session, onClose }) {
+  const webviewRef = useRef(null);
+  const [webLoading, setWebLoading] = useState(true);
 
+  // This runs BEFORE the page JS executes — so the token is
+  // already in localStorage when the web app checks auth on mount
+  const injectedJS = `
+  localStorage.setItem("token", ${JSON.stringify(session.token)});
+  localStorage.setItem("refreshToken", ${JSON.stringify(session.token)});
+  true;
+`;
+  const handleMessage = (event) => {
+    try {
+      const { type, page } = JSON.parse(event.nativeEvent.data);
+      if (type === "SESSION_END") onClose(page);
+    } catch (err) {
+      console.error("WebView message error:", err);
+    }
+  };
+
+  return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#0b1221" }}>
+      <StatusBar barStyle="light-content" />
+      {webLoading && (
+        <View style={styles.readerLoading}>
+          <ActivityIndicator size="large" color="#2ecc71" />
+          <Text style={styles.readerLoadingText}>
+            Carregando {getBookTitle(session.book)}…
+          </Text>
+        </View>
+      )}
+      <WebView
+        ref={webviewRef}
+        source={{ uri: session.webUrl }}
+        injectedJavaScriptBeforeContentLoaded={injectedJS}
+        onLoadEnd={() => setWebLoading(false)}
+        onMessage={handleMessage}
+        style={{ flex: 1 }}
+        javaScriptEnabled
+        domStorageEnabled
+      />
+    </SafeAreaView>
+  );
+}
+ 
+// ─── Auth Screen ─────────────────────────────────────────────────────────────
 function AuthScreen({ apiUrl, setApiUrl, onAuthenticated }) {
   const [mode, setMode] = useState("login");
   const [username, setUsername] = useState("");
@@ -161,7 +203,7 @@ function AuthScreen({ apiUrl, setApiUrl, onAuthenticated }) {
   const [goal, setGoal] = useState("20");
   const [profilePhoto, setProfilePhoto] = useState(null);
   const [loading, setLoading] = useState(false);
-
+ 
   async function pickProfilePhoto() {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -169,36 +211,31 @@ function AuthScreen({ apiUrl, setApiUrl, onAuthenticated }) {
       aspect: [1, 1],
       quality: 0.8
     });
-
     if (!result.canceled && result.assets?.[0]) {
       setProfilePhoto(result.assets[0]);
     }
   }
-
+ 
   async function persistApiUrl() {
     const cleanUrl = apiUrl.trim();
-
     if (!cleanUrl) {
       Alert.alert("API", "Informe a URL do backend.");
       return;
     }
-
     await saveApiUrl(cleanUrl);
     setRuntimeApiUrl(cleanUrl);
     Alert.alert("API", "Endereco salvo.");
   }
-
+ 
   async function submit() {
     if (!email.trim() || !password.trim()) {
       Alert.alert("Campos obrigatorios", "Informe email e senha.");
       return;
     }
-
     if (mode === "register" && !username.trim()) {
       Alert.alert("Campos obrigatorios", "Informe seu nome de usuario.");
       return;
     }
-
     setLoading(true);
     try {
       if (mode === "register") {
@@ -213,12 +250,8 @@ function AuthScreen({ apiUrl, setApiUrl, onAuthenticated }) {
         setMode("login");
         return;
       }
-
       const response = await loginUser(email.trim(), password);
-      await saveTokens({
-        token: response.token,
-        refreshToken: response.refreshToken
-      });
+      await saveTokens({ token: response.token, refreshToken: response.refreshToken });
       onAuthenticated();
     } catch (error) {
       Alert.alert("TimerBook", getErrorMessage(error));
@@ -226,7 +259,7 @@ function AuthScreen({ apiUrl, setApiUrl, onAuthenticated }) {
       setLoading(false);
     }
   }
-
+ 
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -241,7 +274,7 @@ function AuthScreen({ apiUrl, setApiUrl, onAuthenticated }) {
             <Text style={styles.authTitle}>TimerBook</Text>
           </View>
           <Text style={styles.authSubtitle}>Acesse sua biblioteca pessoal</Text>
-
+ 
           <View style={styles.segmented}>
             <Pressable
               onPress={() => setMode("login")}
@@ -260,7 +293,7 @@ function AuthScreen({ apiUrl, setApiUrl, onAuthenticated }) {
               </Text>
             </Pressable>
           </View>
-
+ 
           {mode === "register" && (
             <>
               <Pressable onPress={pickProfilePhoto} style={styles.profilePhotoPicker}>
@@ -283,6 +316,7 @@ function AuthScreen({ apiUrl, setApiUrl, onAuthenticated }) {
               <Field label="Usuario" value={username} onChangeText={setUsername} />
             </>
           )}
+ 
           <Field
             label="Email"
             value={email}
@@ -290,12 +324,7 @@ function AuthScreen({ apiUrl, setApiUrl, onAuthenticated }) {
             keyboardType="email-address"
             placeholder="voce@email.com"
           />
-          <Field
-            label="Senha"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-          />
+          <Field label="Senha" value={password} onChangeText={setPassword} secureTextEntry />
           {mode === "register" && (
             <Field
               label="Meta diaria em minutos"
@@ -304,11 +333,11 @@ function AuthScreen({ apiUrl, setApiUrl, onAuthenticated }) {
               keyboardType="numeric"
             />
           )}
-
+ 
           <PrimaryButton onPress={submit} disabled={loading}>
             {loading ? "Aguarde..." : mode === "login" ? "Entrar" : "Criar conta"}
           </PrimaryButton>
-
+ 
           <View style={styles.apiBox}>
             <Text style={styles.apiTitle}>Backend</Text>
             <TextInput
@@ -329,60 +358,56 @@ function AuthScreen({ apiUrl, setApiUrl, onAuthenticated }) {
     </KeyboardAvoidingView>
   );
 }
-
-function HomeScreen({ user, stats, inProgress, onRefresh, refreshing, onNavigateProfile }) {
+ 
+// ─── Home Screen ─────────────────────────────────────────────────────────────
+function HomeScreen({ user, stats, inProgress, onRefresh, refreshing }) {
   return (
-    <View style={{ flex: 1 }}> 
-      
-      <ScrollView
-        contentContainerStyle={styles.screenContent}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-      >
-        <Text style={styles.eyebrow}>Bem-vindo de volta</Text>
-        <Text style={styles.title}>{user?.username || "Leitor"}</Text>
-
-        <View style={styles.statsGrid}>
-          <StatCard label="Paginas lidas" value={stats?.pagesRead ?? 0} />
-          <StatCard label="Tempo total" value={formatDuration(stats?.totalSeconds)} />
-          <StatCard label="Sessoes" value={stats?.sessionsCount ?? 0} />
-          <StatCard label="Sequencia" value={`${stats?.currentStreakDays ?? 0} dias`} />
-        </View>
-
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Leituras em andamento</Text>
-        </View>
-
-        {inProgress.length === 0 ? (
-          <EmptyState
-            title="Nada em andamento"
-            description="Comece uma leitura pela biblioteca para acompanhar seu progresso."
-          />
-        ) : (
-          inProgress.map((reading) => (
-            <View key={String(reading.id)} style={styles.readingRow}>
-              <Text style={styles.readingTitle}>{getBookTitle(reading.book)}</Text>
-              <Text style={styles.readingMeta}>Pagina atual: {reading.currentPage ?? 0}</Text>
-            </View>
-          ))
-        )}
-      </ScrollView>
-      <HomeGuide onNavigateProfile={onNavigateProfile} /> 
-    </View>
+    <ScrollView
+      contentContainerStyle={styles.screenContent}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+    >
+      <Text style={styles.eyebrow}>Bem-vindo de volta</Text>
+      <Text style={styles.title}>{user?.username || "Leitor"}</Text>
+ 
+      <View style={styles.statsGrid}>
+        <StatCard label="Paginas lidas" value={stats?.pagesRead ?? 0} />
+        <StatCard label="Tempo total" value={formatDuration(stats?.totalSeconds)} />
+        <StatCard label="Sessoes" value={stats?.sessionsCount ?? 0} />
+        <StatCard label="Sequencia" value={`${stats?.currentStreakDays ?? 0} dias`} />
+      </View>
+ 
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>Leituras em andamento</Text>
+      </View>
+ 
+      {inProgress.length === 0 ? (
+        <EmptyState
+          title="Nada em andamento"
+          description="Comece uma leitura pela biblioteca para acompanhar seu progresso."
+        />
+      ) : (
+        inProgress.map((reading) => (
+          <View key={String(reading.id)} style={styles.readingRow}>
+            <Text style={styles.readingTitle}>{getBookTitle(reading.book)}</Text>
+            <Text style={styles.readingMeta}>Pagina atual: {reading.currentPage ?? 0}</Text>
+          </View>
+        ))
+      )}
+    </ScrollView>
   );
 }
-
-function LibraryScreen({ apiUrl, books, inProgress, onStartBook, onDeleteBook, onRefresh, refreshing, onViewStats }) {
+ 
+// ─── Library Screen ───────────────────────────────────────────────────────────
+function LibraryScreen({ apiUrl, books, inProgress, onStartBook, onDeleteBook, onRefresh, refreshing }) {
   const inProgressByBookId = useMemo(() => {
     const map = new Map();
     inProgress.forEach((reading) => {
       const bookId = getReadingBookId(reading);
-      if (bookId) {
-        map.set(Number(bookId), reading);
-      }
+      if (bookId) map.set(Number(bookId), reading);
     });
     return map;
   }, [inProgress]);
-
+ 
   return (
     <FlatList
       data={books}
@@ -406,7 +431,6 @@ function LibraryScreen({ apiUrl, books, inProgress, onStartBook, onDeleteBook, o
       renderItem={({ item }) => {
         const coverUrl = getBookCover(item, apiUrl);
         const reading = inProgressByBookId.get(Number(item.id));
-
         return (
           <View style={styles.bookCard}>
             {coverUrl ? (
@@ -451,7 +475,8 @@ function LibraryScreen({ apiUrl, books, inProgress, onStartBook, onDeleteBook, o
     />
   );
 }
-
+ 
+// ─── New Book Screen ──────────────────────────────────────────────────────────
 function NewBookScreen({ form, setForm, onCreateBook, loading }) {
   async function pickCover() {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -459,24 +484,22 @@ function NewBookScreen({ form, setForm, onCreateBook, loading }) {
       allowsEditing: true,
       quality: 0.8
     });
-
     if (!result.canceled && result.assets?.[0]) {
       setForm((current) => ({ ...current, cover: result.assets[0] }));
     }
   }
-
+ 
   async function pickPdf() {
     const result = await DocumentPicker.getDocumentAsync({
       type: "application/pdf",
       copyToCacheDirectory: true
     });
-
     if (!result.canceled) {
       const asset = result.assets?.[0] || result;
       setForm((current) => ({ ...current, pdf: asset }));
     }
   }
-
+ 
   return (
     <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.screenContent}>
       <Text style={styles.eyebrow}>Cadastro</Text>
@@ -510,14 +533,15 @@ function NewBookScreen({ form, setForm, onCreateBook, loading }) {
     </ScrollView>
   );
 }
-
+ 
+// ─── Profile Screen ───────────────────────────────────────────────────────────
 function ProfileScreen({ apiUrl, setApiUrl, user, onSaveApiUrl, onSaveGoal, onLogout }) {
   const [goal, setGoal] = useState(String(user?.dailyReadingGoalMinutes ?? 20));
-
+ 
   useEffect(() => {
     setGoal(String(user?.dailyReadingGoalMinutes ?? 20));
   }, [user?.dailyReadingGoalMinutes]);
-
+ 
   return (
     <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.screenContent}>
       <Text style={styles.eyebrow}>Conta</Text>
@@ -535,7 +559,6 @@ function ProfileScreen({ apiUrl, setApiUrl, user, onSaveApiUrl, onSaveGoal, onLo
       <PrimaryButton onPress={() => onSaveGoal(goal)} variant="secondary">
         Atualizar meta
       </PrimaryButton>
-
       <View style={styles.divider} />
       <Field
         label="Endereco do backend"
@@ -552,35 +575,8 @@ function ProfileScreen({ apiUrl, setApiUrl, user, onSaveApiUrl, onSaveGoal, onLo
     </ScrollView>
   );
 }
-
-function ReadingSessionPanel({ session, endPage, setEndPage, elapsed, onFinish, onCancel, loading }) {
-  if (!session) {
-    return null;
-  }
-
-  return (
-    <View style={styles.sessionPanel}>
-      <View style={styles.sessionCard}>
-        <Text style={styles.sessionEyebrow}>Sessao ativa</Text>
-        <Text style={styles.sessionTitle}>{getBookTitle(session.book)}</Text>
-        <Text style={styles.timer}>{formatTimer(elapsed)}</Text>
-        <Field
-          label="Pagina final"
-          value={endPage}
-          onChangeText={setEndPage}
-          keyboardType="numeric"
-        />
-        <PrimaryButton onPress={onFinish} disabled={loading}>
-          {loading ? "Finalizando..." : "Finalizar sessao"}
-        </PrimaryButton>
-        <PrimaryButton onPress={onCancel} variant="secondary">
-          Continuar depois
-        </PrimaryButton>
-      </View>
-    </View>
-  );
-}
-
+ 
+// ─── App Root ─────────────────────────────────────────────────────────────────
 export default function App() {
   const [booting, setBooting] = useState(true);
   const [authenticated, setAuthenticated] = useState(false);
@@ -593,102 +589,72 @@ export default function App() {
   const [refreshing, setRefreshing] = useState(false);
   const [bookForm, setBookForm] = useState(initialBookForm);
   const [savingBook, setSavingBook] = useState(false);
-  const [session, setSession] = useState(null);
-  const [endPage, setEndPage] = useState("");
-  const [elapsed, setElapsed] = useState(0);
-  const [finishingSession, setFinishingSession] = useState(false);
-  const [statsReadingId, setStatsReadingId] = useState(null);
-
+ 
+  // ── Reader state (replaces ReadingSessionPanel) ──
+  const [readerSession, setReaderSession] = useState(null);
+ 
+  // ── Boot: restore stored API URL + token ──
   useEffect(() => {
     async function restore() {
       const storedApiUrl = await getStoredApiUrl();
       const token = await getStoredToken();
-
       if (storedApiUrl) {
         setApiUrl(storedApiUrl);
         setRuntimeApiUrl(storedApiUrl);
       } else {
         setRuntimeApiUrl(apiUrl);
       }
-
       setAuthenticated(Boolean(token));
       setBooting(false);
     }
-
     restore();
   }, []);
-
+ 
   useEffect(() => {
-    let intervalId;
-
-    if (session) {
-      setElapsed(0);
-      intervalId = setInterval(() => {
-        setElapsed((value) => value + 1);
-      }, 1000);
-    }
-
-    return () => {
-      if (intervalId) {
-        clearInterval(intervalId);
-      }
-    };
-  }, [session]);
-
-  useEffect(() => {
-    if (authenticated) {
-      loadAppData();
-    }
+    if (authenticated) loadAppData();
   }, [authenticated]);
-
+ 
   async function loadAppData() {
     setRefreshing(true);
     try {
       const me = await getMe();
       setUser(me);
-
       const [booksData, statsData, progressData] = await Promise.all([
         getBooksByUserId(me.id),
         getGeneralStats(),
         getBooksInProgress()
       ]);
-
       setBooks(Array.isArray(booksData) ? booksData : []);
       setStats(statsData || null);
       setInProgress(Array.isArray(progressData) ? progressData : []);
     } catch (error) {
       Alert.alert("TimerBook", getErrorMessage(error));
-      if (error.status === 401) {
-        await logout();
-      }
+      if (error.status === 401) await logout();
     } finally {
       setRefreshing(false);
     }
   }
-
+ 
   async function handleAuthenticated() {
     setAuthenticated(true);
   }
-
+ 
   async function persistApiUrl() {
     const cleanUrl = apiUrl.trim();
-
     if (!cleanUrl) {
       Alert.alert("API", "Informe a URL do backend.");
       return;
     }
-
     await saveApiUrl(cleanUrl);
     setRuntimeApiUrl(cleanUrl);
     Alert.alert("API", "Endereco salvo.");
   }
-
+ 
   async function handleCreateBook() {
     if (!bookForm.name.trim()) {
       Alert.alert("Novo livro", "Informe o nome do livro.");
       return;
     }
-
     setSavingBook(true);
     try {
       await createBook(user.id, {
@@ -706,7 +672,7 @@ export default function App() {
       setSavingBook(false);
     }
   }
-
+ 
   async function handleDeleteBook(book) {
     Alert.alert("Excluir livro", `Excluir "${getBookTitle(book)}"?`, [
       { text: "Cancelar", style: "cancel" },
@@ -724,63 +690,61 @@ export default function App() {
       }
     ]);
   }
-
+ 
+  // Opens the WebView reader
   async function handleStartBook(book, activeReading) {
     try {
+      
       const startPage = toNumber(activeReading?.currentPage, 0);
       const reading = await startReading(user.id, book.id, startPage);
       const sessions = await getSessionsByReadingId(reading.id);
       let currentSession = sortSessionsByStartDesc(sessions).find((item) => !item.endedAt);
-
+ 
       if (!currentSession) {
         currentSession = await startReadingSession(reading.id, startPage);
       }
-
-      setSession({
+ 
+      const token = await getStoredToken();
+      console.log("token", token);
+      const webUrl = `${WEB_URL}/leitor?bookId=${book.id}&sessionId=${currentSession.id}&page=${startPage}&token=${token}`;
+ 
+      setReaderSession({
         book,
-        reading,
-        readingId: reading.id,
         sessionId: currentSession.id,
-        startPage
+        initialPage: startPage,
+        webUrl,
+        token
       });
-      setEndPage(String(startPage));
     } catch (error) {
       Alert.alert("Leitura", getErrorMessage(error));
     }
   }
-
-  async function handleFinishSession() {
-    if (!session?.sessionId) {
+ 
+  // Called when web app posts SESSION_END
+  async function handleCloseReader(finalPage) {
+    if (!readerSession?.sessionId) {
+      setReaderSession(null);
       return;
     }
-
-    const numericEndPage = Number(endPage);
-    if (!Number.isFinite(numericEndPage) || numericEndPage < 0) {
-      Alert.alert("Sessao", "Informe uma pagina final valida.");
-      return;
-    }
-
-    setFinishingSession(true);
     try {
-      await finishReadingSession(session.sessionId, numericEndPage);
-      setSession(null);
-      await loadAppData();
-      Alert.alert("Sessao", "Sessao finalizada com sucesso.");
-    } catch (error) {
-      Alert.alert("Sessao", getErrorMessage(error));
+      await finishReadingSession(
+        readerSession.sessionId,
+        finalPage ?? readerSession.initialPage
+      );
+    } catch (err) {
+      console.error("Erro ao encerrar sessão:", err.message);
     } finally {
-      setFinishingSession(false);
+      setReaderSession(null);
+      await loadAppData();
     }
   }
-
+ 
   async function handleSaveGoal(goal) {
     const numericGoal = Number(goal);
-
     if (!Number.isFinite(numericGoal) || numericGoal < 0) {
       Alert.alert("Meta", "Informe uma meta valida em minutos.");
       return;
     }
-
     try {
       const response = await updateReadingGoal(numericGoal);
       setUser((current) => ({
@@ -793,7 +757,7 @@ export default function App() {
       Alert.alert("Meta", getErrorMessage(error));
     }
   }
-
+ 
   async function logout() {
     await clearSessionStorage();
     setAuthenticated(false);
@@ -801,9 +765,10 @@ export default function App() {
     setBooks([]);
     setStats(null);
     setInProgress([]);
-    setSession(null);
+    setReaderSession(null);
   }
-
+ 
+  // ── Booting splash ──
   if (booting) {
     return (
       <SafeAreaView style={styles.loadingScreen}>
@@ -812,7 +777,8 @@ export default function App() {
       </SafeAreaView>
     );
   }
-
+ 
+  // ── Auth ──
   if (!authenticated) {
     return (
       <SafeAreaView style={styles.safeArea}>
@@ -825,7 +791,18 @@ export default function App() {
       </SafeAreaView>
     );
   }
-
+ 
+  // ── Reader (fullscreen WebView overlay) ──
+  if (readerSession) {
+    return (
+      <ReaderScreen
+        session={readerSession}
+        onClose={handleCloseReader}
+      />
+    );
+  }
+ 
+  // ── Main App ──
   return (
     <SafeAreaView style={styles.safeArea}>
       <ExpoStatusBar style="light" />
@@ -881,38 +858,27 @@ export default function App() {
           </>
         )}
       </View>
-
-      {!statsReadingId && (
-        <View style={styles.tabBar}>
-          {tabs.map((tab) => {
-            const active = tab.key === activeTab;
-            return (
-              <Pressable
-                key={tab.key}
-                onPress={() => setActiveTab(tab.key)}
-                style={[styles.tab, active && styles.activeTab]}
-              >
-                <Text style={[styles.tabText, active && styles.activeTabText]}>
-                  {tab.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-      )}
-
-      <ReadingSessionPanel
-        session={session}
-        endPage={endPage}
-        setEndPage={setEndPage}
-        elapsed={elapsed}
-        onFinish={handleFinishSession}
-        onCancel={() => setSession(null)}
-        loading={finishingSession}
-      />
+ 
+      <View style={styles.tabBar}>
+        {tabs.map((tab) => {
+          const active = tab.key === activeTab;
+          return (
+            <Pressable
+              key={tab.key}
+              onPress={() => setActiveTab(tab.key)}
+              style={[styles.tab, active && styles.activeTab]}
+            >
+              <Text style={[styles.tabText, active && styles.activeTabText]}>
+                {tab.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
     </SafeAreaView>
   );
 } 
+
 
 const styles = StyleSheet.create({
   safeArea: {
