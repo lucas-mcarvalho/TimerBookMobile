@@ -19,6 +19,8 @@ import {
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
 import { StatusBar as ExpoStatusBar } from "expo-status-bar";
+import HomeGuide from "./src/components/HomeGuide";
+import Estatisticas from "./src/components/estatisticas";
 import {
   clearSessionStorage,
   getStoredApiUrl,
@@ -328,44 +330,48 @@ function AuthScreen({ apiUrl, setApiUrl, onAuthenticated }) {
   );
 }
 
-function HomeScreen({ user, stats, inProgress, onRefresh, refreshing }) {
+function HomeScreen({ user, stats, inProgress, onRefresh, refreshing, onNavigateProfile }) {
   return (
-    <ScrollView
-      contentContainerStyle={styles.screenContent}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-    >
-      <Text style={styles.eyebrow}>Bem-vindo de volta</Text>
-      <Text style={styles.title}>{user?.username || "Leitor"}</Text>
+    <View style={{ flex: 1 }}> 
+      
+      <ScrollView
+        contentContainerStyle={styles.screenContent}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+      >
+        <Text style={styles.eyebrow}>Bem-vindo de volta</Text>
+        <Text style={styles.title}>{user?.username || "Leitor"}</Text>
 
-      <View style={styles.statsGrid}>
-        <StatCard label="Paginas lidas" value={stats?.pagesRead ?? 0} />
-        <StatCard label="Tempo total" value={formatDuration(stats?.totalSeconds)} />
-        <StatCard label="Sessoes" value={stats?.sessionsCount ?? 0} />
-        <StatCard label="Sequencia" value={`${stats?.currentStreakDays ?? 0} dias`} />
-      </View>
+        <View style={styles.statsGrid}>
+          <StatCard label="Paginas lidas" value={stats?.pagesRead ?? 0} />
+          <StatCard label="Tempo total" value={formatDuration(stats?.totalSeconds)} />
+          <StatCard label="Sessoes" value={stats?.sessionsCount ?? 0} />
+          <StatCard label="Sequencia" value={`${stats?.currentStreakDays ?? 0} dias`} />
+        </View>
 
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Leituras em andamento</Text>
-      </View>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Leituras em andamento</Text>
+        </View>
 
-      {inProgress.length === 0 ? (
-        <EmptyState
-          title="Nada em andamento"
-          description="Comece uma leitura pela biblioteca para acompanhar seu progresso."
-        />
-      ) : (
-        inProgress.map((reading) => (
-          <View key={String(reading.id)} style={styles.readingRow}>
-            <Text style={styles.readingTitle}>{getBookTitle(reading.book)}</Text>
-            <Text style={styles.readingMeta}>Pagina atual: {reading.currentPage ?? 0}</Text>
-          </View>
-        ))
-      )}
-    </ScrollView>
+        {inProgress.length === 0 ? (
+          <EmptyState
+            title="Nada em andamento"
+            description="Comece uma leitura pela biblioteca para acompanhar seu progresso."
+          />
+        ) : (
+          inProgress.map((reading) => (
+            <View key={String(reading.id)} style={styles.readingRow}>
+              <Text style={styles.readingTitle}>{getBookTitle(reading.book)}</Text>
+              <Text style={styles.readingMeta}>Pagina atual: {reading.currentPage ?? 0}</Text>
+            </View>
+          ))
+        )}
+      </ScrollView>
+      <HomeGuide onNavigateProfile={onNavigateProfile} /> 
+    </View>
   );
 }
 
-function LibraryScreen({ apiUrl, books, inProgress, onStartBook, onDeleteBook, onRefresh, refreshing }) {
+function LibraryScreen({ apiUrl, books, inProgress, onStartBook, onDeleteBook, onRefresh, refreshing, onViewStats }) {
   const inProgressByBookId = useMemo(() => {
     const map = new Map();
     inProgress.forEach((reading) => {
@@ -424,6 +430,16 @@ function LibraryScreen({ apiUrl, books, inProgress, onStartBook, onDeleteBook, o
                 <Pressable onPress={() => onStartBook(item, reading)} style={styles.smallAction}>
                   <Text style={styles.smallActionText}>Ler</Text>
                 </Pressable>
+                
+                {reading && (
+                  <Pressable 
+                    onPress={() => onViewStats(reading.id)} 
+                    style={[styles.smallAction, { backgroundColor: '#3b82f6' }]}
+                  >
+                    <Text style={styles.smallActionText}>Estatísticas</Text>
+                  </Pressable>
+                )}
+
                 <Pressable onPress={() => onDeleteBook(item)} style={styles.smallDangerAction}>
                   <Text style={styles.smallDangerText}>Excluir</Text>
                 </Pressable>
@@ -581,6 +597,7 @@ export default function App() {
   const [endPage, setEndPage] = useState("");
   const [elapsed, setElapsed] = useState(0);
   const [finishingSession, setFinishingSession] = useState(false);
+  const [statsReadingId, setStatsReadingId] = useState(null);
 
   useEffect(() => {
     async function restore() {
@@ -812,63 +829,77 @@ export default function App() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <ExpoStatusBar style="light" />
+      
       <View style={styles.appShell}>
-        {activeTab === "home" && (
-          <HomeScreen
-            user={user}
-            stats={stats}
-            inProgress={inProgress}
-            onRefresh={loadAppData}
-            refreshing={refreshing}
+        {statsReadingId ? (
+          <Estatisticas 
+            readingId={statsReadingId} 
+            onBack={() => setStatsReadingId(null)} 
           />
-        )}
-        {activeTab === "library" && (
-          <LibraryScreen
-            apiUrl={apiUrl}
-            books={books}
-            inProgress={inProgress}
-            onStartBook={handleStartBook}
-            onDeleteBook={handleDeleteBook}
-            onRefresh={loadAppData}
-            refreshing={refreshing}
-          />
-        )}
-        {activeTab === "newBook" && (
-          <NewBookScreen
-            form={bookForm}
-            setForm={setBookForm}
-            onCreateBook={handleCreateBook}
-            loading={savingBook}
-          />
-        )}
-        {activeTab === "profile" && (
-          <ProfileScreen
-            apiUrl={apiUrl}
-            setApiUrl={setApiUrl}
-            user={user}
-            onSaveApiUrl={persistApiUrl}
-            onSaveGoal={handleSaveGoal}
-            onLogout={logout}
-          />
+        ) : (
+          <>
+            {activeTab === "home" && (
+              <HomeScreen
+                user={user}
+                stats={stats}
+                inProgress={inProgress}
+                onRefresh={loadAppData}
+                refreshing={refreshing}
+                onNavigateProfile={() => setActiveTab("profile")}
+              />
+            )}
+            {activeTab === "library" && (
+              <LibraryScreen
+                apiUrl={apiUrl}
+                books={books}
+                inProgress={inProgress}
+                onStartBook={handleStartBook}
+                onDeleteBook={handleDeleteBook}
+                onRefresh={loadAppData}
+                refreshing={refreshing}
+                onViewStats={(id) => setStatsReadingId(id)}
+              />
+            )}
+            {activeTab === "newBook" && (
+              <NewBookScreen
+                form={bookForm}
+                setForm={setBookForm}
+                onCreateBook={handleCreateBook}
+                loading={savingBook}
+              />
+            )}
+            {activeTab === "profile" && (
+              <ProfileScreen
+                apiUrl={apiUrl}
+                setApiUrl={setApiUrl}
+                user={user}
+                onSaveApiUrl={persistApiUrl}
+                onSaveGoal={handleSaveGoal}
+                onLogout={logout}
+              />
+            )}
+          </>
         )}
       </View>
 
-      <View style={styles.tabBar}>
-        {tabs.map((tab) => {
-          const active = tab.key === activeTab;
-          return (
-            <Pressable
-              key={tab.key}
-              onPress={() => setActiveTab(tab.key)}
-              style={[styles.tab, active && styles.activeTab]}
-            >
-              <Text style={[styles.tabText, active && styles.activeTabText]}>
-                {tab.label}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
+      {!statsReadingId && (
+        <View style={styles.tabBar}>
+          {tabs.map((tab) => {
+            const active = tab.key === activeTab;
+            return (
+              <Pressable
+                key={tab.key}
+                onPress={() => setActiveTab(tab.key)}
+                style={[styles.tab, active && styles.activeTab]}
+              >
+                <Text style={[styles.tabText, active && styles.activeTabText]}>
+                  {tab.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      )}
 
       <ReadingSessionPanel
         session={session}
@@ -881,7 +912,7 @@ export default function App() {
       />
     </SafeAreaView>
   );
-}
+} 
 
 const styles = StyleSheet.create({
   safeArea: {
