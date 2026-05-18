@@ -1,0 +1,47 @@
+# Dependencies
+node_modules/
+
+# Expo / React Native local state
+.expo/
+.expo-shared/
+
+# Build outputs
+dist/
+web-build/
+build/
+
+# Environment and secret files
+.env
+.env.*
+!.env.example
+!.env.sample
+.envrc
+.npmrc
+
+# Platform credentials
+google-services.json
+GoogleService-Info.plist
+service-account*.json
+*service-account*.json
+firebase-adminsdk*.json
+*.keystore
+*.jks
+*.p8
+*.p12
+*.pem
+*.key
+*.crt
+*.cer
+*.mobileprovision
+*.provisionprofile
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# Local editor/tooling state
+.agents/
+.codex/
+.vscode/
+.DS_Store
