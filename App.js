@@ -232,17 +232,18 @@ function ReaderScreen({ session, onClose }) {
         ".leitor-book-title{max-width:140px!important;font-size:13px!important}",
         ".leitor-page-nav{display:none!important}",
 
-        // Botão Assistente no topo, com área de toque maior
-        ".leitor-ai-toggle{display:flex!important;min-height:40px!important;padding:8px 14px!important;font-size:12px!important;gap:6px!important}",
+        // Botão Assistente flutuante, mais baixo e fácil de tocar
+        ".leitor-ai-toggle{position:fixed!important;right:14px!important;bottom:14px!important;z-index:1100!important;display:flex!important;align-items:center!important;justify-content:center!important;min-width:50px!important;min-height:46px!important;padding:0 14px!important;font-size:12px!important;gap:6px!important;border-radius:999px!important;background:rgba(15,23,42,0.96)!important;border:1px solid rgba(99,102,241,0.45)!important;box-shadow:0 8px 24px rgba(0,0,0,0.38)!important}",
+        ".leitor-ai-toggle.active{background:#4f46e5!important;color:#ffffff!important;border-color:rgba(255,255,255,0.18)!important}",
         ".leitor-back-btn{padding:6px 12px!important;font-size:12px!important}",
 
         // PDF body
         ".leitor-pdf-body{padding:8px!important;overflow:hidden!important}",
 
-        // ── Drawer da IA — bottom sheet compacto no mobile ──
+        // ── Drawer da IA — lateral direita compacta no mobile ──
         ".leitor-body{position:relative!important}",
-        ".leitor-drawer{position:fixed!important;top:auto!important;right:auto!important;bottom:72px!important;left:12px!important;width:min(86vw,340px)!important;max-width:none!important;height:min(42vh,330px)!important;z-index:1000!important;opacity:0!important;transform:translateY(calc(100% + 86px))!important;transition:transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1),opacity 0.2s ease!important;border:1px solid rgba(255,255,255,0.08)!important;border-radius:14px!important;box-shadow:0 -10px 30px rgba(0,0,0,0.42)!important}",
-        ".leitor-drawer.open{width:min(86vw,340px)!important;max-width:none!important;transform:translateY(0)!important;opacity:1!important}",
+        ".leitor-drawer{position:fixed!important;top:180px!important;right:10px!important;bottom:150px!important;left:auto!important;width:min(54vw,220px)!important;max-width:none!important;height:auto!important;z-index:1000!important;opacity:0!important;transform:translateX(calc(100% + 12px))!important;transition:transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1),opacity 0.2s ease!important;border:1px solid rgba(255,255,255,0.08)!important;border-radius:14px!important;box-shadow:-10px 0 30px rgba(0,0,0,0.42)!important}",
+        ".leitor-drawer.open{width:min(54vw,220px)!important;max-width:none!important;transform:translateX(0)!important;opacity:1!important}",
         ".leitor-drawer-inner{width:100%!important;height:100%!important;border-radius:14px!important;background:rgba(14, 21, 37, 0.98)!important}",
 
         // Header do drawer mais compacto
