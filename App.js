@@ -3,7 +3,7 @@ import { StyleSheet, Text, View, TouchableOpacity, LayoutAnimation, Platform, UI
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -403,7 +403,16 @@ function HomeScreen({ user, stats, inProgress, onRefresh, refreshing }) {
 }
  
 // ─── Library Screen ───────────────────────────────────────────────────────────
-function LibraryScreen({ apiUrl, books, inProgress, onStartBook, onDeleteBook, onRefresh, refreshing }) {
+function LibraryScreen({
+  apiUrl,
+  books,
+  inProgress,
+  onStartBook,
+  onDeleteBook,
+  onRefresh,
+  refreshing,
+  onViewStats
+}) {
   const inProgressByBookId = useMemo(() => {
     const map = new Map();
     inProgress.forEach((reading) => {
@@ -594,6 +603,7 @@ export default function App() {
   const [refreshing, setRefreshing] = useState(false);
   const [bookForm, setBookForm] = useState(initialBookForm);
   const [savingBook, setSavingBook] = useState(false);
+  const [statsReadingId, setStatsReadingId] = useState(null);
  
   // ── Reader state (replaces ReadingSessionPanel) ──
   const [readerSession, setReaderSession] = useState(null);
