@@ -26,6 +26,7 @@ import Estatisticas from "./src/components/estatisticas";
 import {
   clearSessionStorage,
   getStoredApiUrl,
+  getStoredRefreshToken,
   getStoredToken,
   saveApiUrl,
   saveTokens
@@ -79,6 +80,16 @@ function getBookCover(book, apiUrl) {
   if (!cover) return null;
   if (/^https?:\/\//i.test(cover)) return cover;
   return `${apiUrl.replace(/\/+$/, "")}${cover.startsWith("/") ? cover : `/${cover}`}`;
+}
+
+function getReaderWebUrl(apiUrl) {
+  const envUrl = process.env.EXPO_PUBLIC_WEB_URL;
+  if (envUrl) return envUrl.replace(/\/+$/, "");
+
+  const match = String(apiUrl || "").trim().match(/^(https?:\/\/[^/:]+)(?::\d+)?/i);
+  if (!match) return WEB_URL;
+
+  return `${match[1]}:${process.env.EXPO_PUBLIC_WEB_PORT || "5173"}`;
 }
  
 function sortSessionsByStartDesc(sessions) {
@@ -153,17 +164,125 @@ function ReaderScreen({ session, onClose }) {
   const webviewRef = useRef(null);
   const [webLoading, setWebLoading] = useState(true);
 
-  // This runs BEFORE the page JS executes — so the token is
-  // already in localStorage when the web app checks auth on mount
+  // Runs before the web app mounts, so auth and route state exist on mobile.
   const injectedJS = `
-  localStorage.setItem("token", ${JSON.stringify(session.token)});
-  localStorage.setItem("refreshToken", ${JSON.stringify(session.token)});
+  (function () {
+    var token = ${JSON.stringify(session.token || "")};
+    var refreshToken = ${JSON.stringify(session.refreshToken || session.token || "")};
+    var apiUrl = ${JSON.stringify(session.apiUrl || "")};
+    var routeState = ${JSON.stringify({
+      book: session.book,
+      sessionId: session.sessionId,
+      initialPage: session.initialPage
+    })};
+    var preferencesKey = ${JSON.stringify(
+      `timerbook-pdf-preferences-${session.book?.id || session.book?.dataPath || "livro"}`
+    )};
+    var mobilePreferences = {
+      viewMode: "single",
+      zoom: 0.85,
+      fitWidth: true,
+      visualMode: "normal",
+      textMode: false,
+      textSize: 18,
+      lineHeight: 1.7,
+      rotation: 0
+    };
+
+    if (token) {
+      localStorage.setItem("token", token);
+      localStorage.setItem("timerbook.accessToken", token);
+    }
+    if (refreshToken) {
+      localStorage.setItem("refreshToken", refreshToken);
+      localStorage.setItem("timerbook.refreshToken", refreshToken);
+    }
+    localStorage.setItem(preferencesKey, JSON.stringify(mobilePreferences));
+
+    window.history.replaceState(
+      Object.assign({}, window.history.state || {}, { usr: routeState }),
+      "",
+      window.location.href
+    );
+
+    function applyMobileStyles() {
+      if (!document.head) {
+        setTimeout(applyMobileStyles, 30);
+        return;
+      }
+      if (document.getElementById("timerbook-mobile-reader-style")) return;
+
+      var style = document.createElement("style");
+      style.id = "timerbook-mobile-reader-style";
+      style.textContent = [
+        ".leitor-topbar{height:auto!important;min-height:48px!important;padding:6px 10px!important;gap:8px!important}",
+        ".leitor-book-title{max-width:150px!important;font-size:13px!important}",
+        ".leitor-page-nav,.leitor-ai-toggle{display:none!important}",
+        ".leitor-pdf-body{padding:6px!important;overflow:hidden!important}",
+        ".leitor-drawer{display:none!important;width:0!important}",
+        ".pdf-viewer{width:100%!important;gap:6px!important}",
+        ".pdf-toolbar{padding:6px!important;gap:6px!important;border-radius:8px!important}",
+        ".pdf-toolbar-group{min-height:30px!important;padding:2px!important;gap:2px!important}",
+        ".pdf-toolbar button{min-width:30px!important;min-height:28px!important;padding:0 6px!important;font-size:11px!important}",
+        ".pdf-page-jump,.pdf-zoom-label,.pdf-search-count{font-size:11px!important}",
+        ".pdf-search,.pdf-toolbar-group[aria-label='Acessibilidade visual']{display:none!important}",
+        ".pdf-viewport{border-radius:8px!important}",
+        ".pdf-pages{gap:10px!important;padding:8px 0 24px!important}",
+        ".pdf-page-shell,.pdf-page-shell canvas{border-radius:4px!important;max-width:100%!important;height:auto!important}"
+      ].join("\\n");
+      document.head.appendChild(style);
+    }
+
+    applyMobileStyles();
+
+    function rewriteApiUrl(url) {
+      if (!apiUrl || typeof url !== "string") return url;
+      return url
+        .replace(/^http:\\/\\/localhost:8080/i, apiUrl)
+        .replace(/^http:\\/\\/127\\.0\\.0\\.1:8080/i, apiUrl)
+        .replace(/^http:\\/\\/10\\.0\\.2\\.2:8080/i, apiUrl);
+    }
+
+    var originalOpen = XMLHttpRequest.prototype.open;
+    var originalSend = XMLHttpRequest.prototype.send;
+
+    XMLHttpRequest.prototype.open = function () {
+      var args = Array.prototype.slice.call(arguments);
+      args[1] = rewriteApiUrl(args[1]);
+      this.__timerbookUrl = args[1];
+      return originalOpen.apply(this, args);
+    };
+
+    XMLHttpRequest.prototype.send = function (body) {
+      var isFinishRequest = /\\/reading-sessions\\/[^/]+\\/finish/.test(this.__timerbookUrl || "");
+      var finishPage = null;
+
+      if (isFinishRequest) {
+        try {
+          var parsedBody = typeof body === "string" ? JSON.parse(body) : null;
+          finishPage = parsedBody && parsedBody.endPage;
+        } catch (err) {}
+
+        this.addEventListener("load", function () {
+          if (this.status >= 200 && this.status < 300 && window.ReactNativeWebView) {
+            window.ReactNativeWebView.postMessage(JSON.stringify({
+              type: "SESSION_END",
+              page: finishPage,
+              alreadyFinished: true
+            }));
+          }
+        });
+      }
+
+      return originalSend.apply(this, arguments);
+    };
+  })();
   true;
 `;
   const handleMessage = (event) => {
     try {
-      const { type, page } = JSON.parse(event.nativeEvent.data);
-      if (type === "SESSION_END") onClose(page);
+      const { type, page, alreadyFinished } = JSON.parse(event.nativeEvent.data);
+      if (type === "SESSION_END") onClose(page, alreadyFinished);
     } catch (err) {
       console.error("WebView message error:", err);
     }
@@ -720,15 +839,21 @@ export default function App() {
       }
  
       const token = await getStoredToken();
-      console.log("token", token);
-      const webUrl = `${WEB_URL}/leitor?bookId=${book.id}&sessionId=${currentSession.id}&page=${startPage}&token=${token}`;
+      const refreshToken = await getStoredRefreshToken();
+      const readerBaseUrl = getReaderWebUrl(apiUrl);
+      const webUrl = `${readerBaseUrl}/leitor?bookId=${encodeURIComponent(book.id)}&sessionId=${encodeURIComponent(currentSession.id)}&page=${encodeURIComponent(startPage)}&token=${encodeURIComponent(token || "")}`;
  
       setReaderSession({
-        book,
+        book: {
+          ...book,
+          title: book.title || book.name
+        },
         sessionId: currentSession.id,
         initialPage: startPage,
         webUrl,
-        token
+        token,
+        refreshToken,
+        apiUrl: apiUrl.replace(/\/+$/, "")
       });
     } catch (error) {
       Alert.alert("Leitura", getErrorMessage(error));
@@ -736,16 +861,18 @@ export default function App() {
   }
  
   // Called when web app posts SESSION_END
-  async function handleCloseReader(finalPage) {
+  async function handleCloseReader(finalPage, alreadyFinished = false) {
     if (!readerSession?.sessionId) {
       setReaderSession(null);
       return;
     }
     try {
-      await finishReadingSession(
-        readerSession.sessionId,
-        finalPage ?? readerSession.initialPage
-      );
+      if (!alreadyFinished) {
+        await finishReadingSession(
+          readerSession.sessionId,
+          finalPage ?? readerSession.initialPage
+        );
+      }
     } catch (err) {
       console.error("Erro ao encerrar sessão:", err.message);
     } finally {
