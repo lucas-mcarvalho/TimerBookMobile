@@ -48,33 +48,33 @@ import {
 } from "./src/api/timerbook";
 import { getDefaultApiUrl, setRuntimeApiUrl } from "./src/api/client";
 import { formatDuration, formatTimer, toNumber } from "./src/utils/formatters";
- 
+
 // ─── Constants ───────────────────────────────────────────────────────────────
 const WEB_URL = "http://192.168.10.102:5173";
- 
+
 const tabs = [
   { key: "home", label: "Inicio" },
   { key: "library", label: "Livros" },
   { key: "newBook", label: "Novo" },
   { key: "profile", label: "Perfil" }
 ];
- 
+
 const initialBookForm = {
   name: "",
   description: "",
   cover: null,
   pdf: null
 };
- 
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function getErrorMessage(error) {
   return error?.message || "Algo saiu do esperado. Tente novamente.";
 }
- 
+
 function getBookTitle(book) {
   return book?.name || book?.title || "Livro sem titulo";
 }
- 
+
 function getBookCover(book, apiUrl) {
   const cover = book?.coverUrl || book?.coverPath;
   if (!cover) return null;
@@ -91,17 +91,28 @@ function getReaderWebUrl(apiUrl) {
 
   return `${match[1]}:${process.env.EXPO_PUBLIC_WEB_PORT || "5173"}`;
 }
- 
+
+// Deriva a URL do serviço Python de IA a partir do apiUrl (mesmo host, porta 8000)
+function getIaApiUrl(apiUrl) {
+  const envUrl = process.env.EXPO_PUBLIC_IA_URL;
+  if (envUrl) return envUrl.replace(/\/+$/, "");
+
+  const match = String(apiUrl || "").trim().match(/^(https?:\/\/[^/:]+)/i);
+  if (!match) return "";
+
+  return `${match[1]}:${process.env.EXPO_PUBLIC_IA_PORT || "8000"}`;
+}
+
 function sortSessionsByStartDesc(sessions) {
   return [...(Array.isArray(sessions) ? sessions : [])].sort(
     (a, b) => new Date(b.startedAt || 0) - new Date(a.startedAt || 0)
   );
 }
- 
+
 function getReadingBookId(reading) {
   return reading?.book?.id ?? reading?.bookId ?? reading?.book_id;
 }
- 
+
 // ─── Shared UI Components ────────────────────────────────────────────────────
 function Field({ label, value, onChangeText, secureTextEntry, keyboardType, placeholder, multiline }) {
   return (
@@ -120,7 +131,7 @@ function Field({ label, value, onChangeText, secureTextEntry, keyboardType, plac
     </View>
   );
 }
- 
+
 function PrimaryButton({ children, onPress, disabled, variant = "primary" }) {
   return (
     <Pressable
@@ -140,7 +151,7 @@ function PrimaryButton({ children, onPress, disabled, variant = "primary" }) {
     </Pressable>
   );
 }
- 
+
 function StatCard({ label, value }) {
   return (
     <View style={styles.statCard}>
@@ -149,7 +160,7 @@ function StatCard({ label, value }) {
     </View>
   );
 }
- 
+
 function EmptyState({ title, description }) {
   return (
     <View style={styles.emptyState}>
@@ -158,7 +169,7 @@ function EmptyState({ title, description }) {
     </View>
   );
 }
- 
+
 // ─── Reader Screen (WebView) ──────────────────────────────────────────────────
 function ReaderScreen({ session, onClose }) {
   const webviewRef = useRef(null);
@@ -170,6 +181,7 @@ function ReaderScreen({ session, onClose }) {
     var token = ${JSON.stringify(session.token || "")};
     var refreshToken = ${JSON.stringify(session.refreshToken || session.token || "")};
     var apiUrl = ${JSON.stringify(session.apiUrl || "")};
+    var iaApiUrl = ${JSON.stringify(session.iaApiUrl || "")};
     var routeState = ${JSON.stringify({
       book: session.book,
       sessionId: session.sessionId,
@@ -215,11 +227,45 @@ function ReaderScreen({ session, onClose }) {
       var style = document.createElement("style");
       style.id = "timerbook-mobile-reader-style";
       style.textContent = [
-        ".leitor-topbar{height:auto!important;min-height:48px!important;padding:6px 10px!important;gap:8px!important}",
-        ".leitor-book-title{max-width:150px!important;font-size:13px!important}",
-        ".leitor-page-nav,.leitor-ai-toggle{display:none!important}",
-        ".leitor-pdf-body{padding:6px!important;overflow:hidden!important}",
-        ".leitor-drawer{display:none!important;width:0!important}",
+        // Topbar compacto
+        ".leitor-topbar{height:auto!important;min-height:52px!important;padding:8px 14px!important;gap:10px!important}",
+        ".leitor-book-title{max-width:140px!important;font-size:13px!important}",
+        ".leitor-page-nav{display:none!important}",
+
+        // Botão Assistente compacto mas visível
+        ".leitor-ai-toggle{display:flex!important;padding:6px 12px!important;font-size:12px!important;gap:6px!important}",
+        ".leitor-back-btn{padding:6px 12px!important;font-size:12px!important}",
+
+        // PDF body
+        ".leitor-pdf-body{padding:8px!important;overflow:hidden!important}",
+
+        // ── Drawer da IA — overlay flutuante lateral (85% da tela, máx 380px) ──
+        // Sobrescreve o width:0 -> 380px do desktop para um overlay no mobile
+        ".leitor-drawer{position:fixed!important;top:0!important;right:0!important;bottom:0!important;left:auto!important;width:25%!important;max-width:380px!important;height:100%!important;z-index:1000!important;opacity:1!important;transform:translateX(100%)!important;transition:transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1)!important;box-shadow:-10px 0 30px rgba(0,0,0,0.5)!important}",
+        ".leitor-drawer.open{width:25%!important;max-width:380px!important;transform:translateX(0)!important;opacity:1!important}",
+        ".leitor-drawer-inner{width:100%!important;height:100%!important;background:rgba(14, 21, 37, 0.98)!important}",
+
+        // Header do drawer mais compacto
+        ".leitor-drawer-header{padding:14px 16px!important}",
+        ".leitor-drawer-title{font-size:14px!important}",
+
+        // Chat area
+        ".leitor-chat-area{padding:14px!important;gap:14px!important}",
+        ".leitor-user-bubble, .leitor-ai-bubble{max-width:92%!important;padding:10px 14px!important}",
+        ".leitor-user-text, .leitor-ai-text{font-size:13px!important;line-height:1.5!important}",
+
+        // Suggestion chips
+        ".leitor-chips{padding:0 14px 12px!important;gap:6px!important}",
+        ".leitor-chip{font-size:11px!important;padding:6px 12px!important}",
+
+        // Input area
+        ".leitor-input-area{padding:12px 14px 16px!important}",
+        ".leitor-input-wrap{padding:10px 14px!important}",
+        ".leitor-textarea{font-size:14px!important}",
+        ".leitor-hint{display:none!important}",
+        ".leitor-send-btn{padding:6px 14px!important;font-size:12px!important}",
+
+        // PDF viewer e toolbar
         ".pdf-viewer{width:100%!important;gap:6px!important}",
         ".pdf-toolbar{padding:6px!important;gap:6px!important;border-radius:8px!important}",
         ".pdf-toolbar-group{min-height:30px!important;padding:2px!important;gap:2px!important}",
@@ -235,12 +281,27 @@ function ReaderScreen({ session, onClose }) {
 
     applyMobileStyles();
 
+    // Reescreve URLs de XHR para o IP real do servidor (Java e Python)
     function rewriteApiUrl(url) {
-      if (!apiUrl || typeof url !== "string") return url;
-      return url
-        .replace(/^http:\\/\\/localhost:8080/i, apiUrl)
-        .replace(/^http:\\/\\/127\\.0\\.0\\.1:8080/i, apiUrl)
-        .replace(/^http:\\/\\/10\\.0\\.2\\.2:8080/i, apiUrl);
+      if (typeof url !== "string") return url;
+
+      // Backend Java (porta 8080)
+      if (apiUrl) {
+        url = url
+          .replace(/^http:\\/\\/localhost:8080/i, apiUrl)
+          .replace(/^http:\\/\\/127\\.0\\.0\\.1:8080/i, apiUrl)
+          .replace(/^http:\\/\\/10\\.0\\.2\\.2:8080/i, apiUrl);
+      }
+
+      // Serviço Python de IA (porta 8000)
+      if (iaApiUrl) {
+        url = url
+          .replace(/^http:\\/\\/localhost:8000/i, iaApiUrl)
+          .replace(/^http:\\/\\/127\\.0\\.0\\.1:8000/i, iaApiUrl)
+          .replace(/^http:\\/\\/10\\.0\\.2\\.2:8000/i, iaApiUrl);
+      }
+
+      return url;
     }
 
     var originalOpen = XMLHttpRequest.prototype.open;
@@ -276,6 +337,19 @@ function ReaderScreen({ session, onClose }) {
 
       return originalSend.apply(this, arguments);
     };
+
+    // Também reescreve fetch (caso a IA use fetch em vez de axios/XHR)
+    var originalFetch = window.fetch;
+    if (originalFetch) {
+      window.fetch = function (input, init) {
+        if (typeof input === "string") {
+          input = rewriteApiUrl(input);
+        } else if (input && input.url) {
+          input = new Request(rewriteApiUrl(input.url), input);
+        }
+        return originalFetch.call(this, input, init);
+      };
+    }
   })();
   true;
 `;
@@ -312,7 +386,7 @@ function ReaderScreen({ session, onClose }) {
     </SafeAreaView>
   );
 }
- 
+
 // ─── Auth Screen ─────────────────────────────────────────────────────────────
 function AuthScreen({ apiUrl, setApiUrl, onAuthenticated }) {
   const [mode, setMode] = useState("login");
@@ -339,7 +413,7 @@ function AuthScreen({ apiUrl, setApiUrl, onAuthenticated }) {
       setProfilePhoto(result.assets[0]);
     }
   }
- 
+
   async function persistApiUrl() {
     const cleanUrl = apiUrl.trim();
     if (!cleanUrl) {
@@ -350,7 +424,7 @@ function AuthScreen({ apiUrl, setApiUrl, onAuthenticated }) {
     setRuntimeApiUrl(cleanUrl);
     Alert.alert("API", "Endereco salvo.");
   }
- 
+
   async function submit() {
     if (!email.trim() || !password.trim()) {
       Alert.alert("Campos obrigatorios", "Informe email e senha.");
@@ -383,7 +457,7 @@ function AuthScreen({ apiUrl, setApiUrl, onAuthenticated }) {
       setLoading(false);
     }
   }
- 
+
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -398,7 +472,7 @@ function AuthScreen({ apiUrl, setApiUrl, onAuthenticated }) {
             <Text style={styles.authTitle}>TimerBook</Text>
           </View>
           <Text style={styles.authSubtitle}>Acesse sua biblioteca pessoal</Text>
- 
+
           <View style={styles.segmented}>
             <Pressable
               onPress={() => toggleMode("login")}
@@ -417,7 +491,7 @@ function AuthScreen({ apiUrl, setApiUrl, onAuthenticated }) {
               </Text>
             </Pressable>
           </View>
- 
+
           {mode === "register" && (
             <>
               <Pressable onPress={pickProfilePhoto} style={styles.profilePhotoPicker}>
@@ -440,7 +514,7 @@ function AuthScreen({ apiUrl, setApiUrl, onAuthenticated }) {
               <Field label="Usuario" value={username} onChangeText={setUsername} />
             </>
           )}
- 
+
           <Field
             label="Email"
             value={email}
@@ -457,11 +531,11 @@ function AuthScreen({ apiUrl, setApiUrl, onAuthenticated }) {
               keyboardType="numeric"
             />
           )}
- 
+
           <PrimaryButton onPress={submit} disabled={loading}>
             {loading ? "Aguarde..." : mode === "login" ? "Entrar" : "Criar conta"}
           </PrimaryButton>
- 
+
           <View style={styles.apiBox}>
             <Text style={styles.apiTitle}>Backend</Text>
             <TextInput
@@ -482,7 +556,7 @@ function AuthScreen({ apiUrl, setApiUrl, onAuthenticated }) {
     </KeyboardAvoidingView>
   );
 }
- 
+
 // ─── Home Screen ─────────────────────────────────────────────────────────────
 function HomeScreen({ user, stats, inProgress, onRefresh, refreshing }) {
   return (
@@ -492,18 +566,18 @@ function HomeScreen({ user, stats, inProgress, onRefresh, refreshing }) {
     >
       <Text style={styles.eyebrow}>Bem-vindo de volta</Text>
       <Text style={styles.title}>{user?.username || "Leitor"}</Text>
- 
+
       <View style={styles.statsGrid}>
         <StatCard label="Paginas lidas" value={stats?.pagesRead ?? 0} />
         <StatCard label="Tempo total" value={formatDuration(stats?.totalSeconds)} />
         <StatCard label="Sessoes" value={stats?.sessionsCount ?? 0} />
         <StatCard label="Sequencia" value={`${stats?.currentStreakDays ?? 0} dias`} />
       </View>
- 
+
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Leituras em andamento</Text>
       </View>
- 
+
       {inProgress.length === 0 ? (
         <EmptyState
           title="Nada em andamento"
@@ -520,7 +594,7 @@ function HomeScreen({ user, stats, inProgress, onRefresh, refreshing }) {
     </ScrollView>
   );
 }
- 
+
 // ─── Library Screen ───────────────────────────────────────────────────────────
 function LibraryScreen({
   apiUrl,
@@ -540,7 +614,7 @@ function LibraryScreen({
     });
     return map;
   }, [inProgress]);
- 
+
   return (
     <FlatList
       data={books}
@@ -587,10 +661,10 @@ function LibraryScreen({
                 <Pressable onPress={() => onStartBook(item, reading)} style={styles.smallAction}>
                   <Text style={styles.smallActionText}>Ler</Text>
                 </Pressable>
-                
+
                 {reading && (
-                  <Pressable 
-                    onPress={() => onViewStats(reading.id)} 
+                  <Pressable
+                    onPress={() => onViewStats(reading.id)}
                     style={[styles.smallAction, { backgroundColor: '#3b82f6' }]}
                   >
                     <Text style={styles.smallActionText}>Estatísticas</Text>
@@ -608,7 +682,7 @@ function LibraryScreen({
     />
   );
 }
- 
+
 // ─── New Book Screen ──────────────────────────────────────────────────────────
 function NewBookScreen({ form, setForm, onCreateBook, loading }) {
   async function pickCover() {
@@ -621,7 +695,7 @@ function NewBookScreen({ form, setForm, onCreateBook, loading }) {
       setForm((current) => ({ ...current, cover: result.assets[0] }));
     }
   }
- 
+
   async function pickPdf() {
     const result = await DocumentPicker.getDocumentAsync({
       type: "application/pdf",
@@ -632,7 +706,7 @@ function NewBookScreen({ form, setForm, onCreateBook, loading }) {
       setForm((current) => ({ ...current, pdf: asset }));
     }
   }
- 
+
   return (
     <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.screenContent}>
       <Text style={styles.eyebrow}>Cadastro</Text>
@@ -666,15 +740,15 @@ function NewBookScreen({ form, setForm, onCreateBook, loading }) {
     </ScrollView>
   );
 }
- 
+
 // ─── Profile Screen ───────────────────────────────────────────────────────────
 function ProfileScreen({ apiUrl, setApiUrl, user, onSaveApiUrl, onSaveGoal, onLogout }) {
   const [goal, setGoal] = useState(String(user?.dailyReadingGoalMinutes ?? 20));
- 
+
   useEffect(() => {
     setGoal(String(user?.dailyReadingGoalMinutes ?? 20));
   }, [user?.dailyReadingGoalMinutes]);
- 
+
   return (
     <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.screenContent}>
       <Text style={styles.eyebrow}>Conta</Text>
@@ -708,7 +782,7 @@ function ProfileScreen({ apiUrl, setApiUrl, user, onSaveApiUrl, onSaveGoal, onLo
     </ScrollView>
   );
 }
- 
+
 // ─── App Root ─────────────────────────────────────────────────────────────────
 export default function App() {
   const [booting, setBooting] = useState(true);
@@ -723,10 +797,10 @@ export default function App() {
   const [bookForm, setBookForm] = useState(initialBookForm);
   const [savingBook, setSavingBook] = useState(false);
   const [statsReadingId, setStatsReadingId] = useState(null);
- 
+
   // ── Reader state (replaces ReadingSessionPanel) ──
   const [readerSession, setReaderSession] = useState(null);
- 
+
   // ── Boot: restore stored API URL + token ──
   useEffect(() => {
     async function restore() {
@@ -743,11 +817,11 @@ export default function App() {
     }
     restore();
   }, []);
- 
+
   useEffect(() => {
     if (authenticated) loadAppData();
   }, [authenticated]);
- 
+
   async function loadAppData() {
     setRefreshing(true);
     try {
@@ -768,11 +842,11 @@ export default function App() {
       setRefreshing(false);
     }
   }
- 
+
   async function handleAuthenticated() {
     setAuthenticated(true);
   }
- 
+
   async function persistApiUrl() {
     const cleanUrl = apiUrl.trim();
     if (!cleanUrl) {
@@ -783,7 +857,7 @@ export default function App() {
     setRuntimeApiUrl(cleanUrl);
     Alert.alert("API", "Endereco salvo.");
   }
- 
+
   async function handleCreateBook() {
     if (!bookForm.name.trim()) {
       Alert.alert("Novo livro", "Informe o nome do livro.");
@@ -806,7 +880,7 @@ export default function App() {
       setSavingBook(false);
     }
   }
- 
+
   async function handleDeleteBook(book) {
     Alert.alert("Excluir livro", `Excluir "${getBookTitle(book)}"?`, [
       { text: "Cancelar", style: "cancel" },
@@ -824,25 +898,26 @@ export default function App() {
       }
     ]);
   }
- 
+
   // Opens the WebView reader
   async function handleStartBook(book, activeReading) {
     try {
-      
+
       const startPage = toNumber(activeReading?.currentPage, 0);
       const reading = await startReading(user.id, book.id, startPage);
       const sessions = await getSessionsByReadingId(reading.id);
       let currentSession = sortSessionsByStartDesc(sessions).find((item) => !item.endedAt);
- 
+
       if (!currentSession) {
         currentSession = await startReadingSession(reading.id, startPage);
       }
- 
+
       const token = await getStoredToken();
       const refreshToken = await getStoredRefreshToken();
       const readerBaseUrl = getReaderWebUrl(apiUrl);
+      const iaApiUrl = getIaApiUrl(apiUrl);
       const webUrl = `${readerBaseUrl}/leitor?bookId=${encodeURIComponent(book.id)}&sessionId=${encodeURIComponent(currentSession.id)}&page=${encodeURIComponent(startPage)}&token=${encodeURIComponent(token || "")}`;
- 
+
       setReaderSession({
         book: {
           ...book,
@@ -853,13 +928,14 @@ export default function App() {
         webUrl,
         token,
         refreshToken,
-        apiUrl: apiUrl.replace(/\/+$/, "")
+        apiUrl: apiUrl.replace(/\/+$/, ""),
+        iaApiUrl
       });
     } catch (error) {
       Alert.alert("Leitura", getErrorMessage(error));
     }
   }
- 
+
   // Called when web app posts SESSION_END
   async function handleCloseReader(finalPage, alreadyFinished = false) {
     if (!readerSession?.sessionId) {
@@ -880,7 +956,7 @@ export default function App() {
       await loadAppData();
     }
   }
- 
+
   async function handleSaveGoal(goal) {
     const numericGoal = Number(goal);
     if (!Number.isFinite(numericGoal) || numericGoal < 0) {
@@ -899,7 +975,7 @@ export default function App() {
       Alert.alert("Meta", getErrorMessage(error));
     }
   }
- 
+
   async function logout() {
     await clearSessionStorage();
     setAuthenticated(false);
@@ -924,7 +1000,7 @@ export default function App() {
       </SafeAreaView>
     );
   }
- 
+
   // ── Auth ──
   if (!authenticated) {
     return (
@@ -938,7 +1014,7 @@ export default function App() {
       </SafeAreaView>
     );
   }
- 
+
   // ── Reader (fullscreen WebView overlay) ──
   if (readerSession) {
     return (
@@ -948,17 +1024,17 @@ export default function App() {
       />
     );
   }
- 
+
   // ── Main App ──
   return (
     <SafeAreaView style={styles.safeArea}>
       <ExpoStatusBar style="light" />
-      
+
       <View style={styles.appShell}>
         {statsReadingId ? (
-          <Estatisticas 
-            readingId={statsReadingId} 
-            onBack={() => setStatsReadingId(null)} 
+          <Estatisticas
+            readingId={statsReadingId}
+            onBack={() => setStatsReadingId(null)}
           />
         ) : (
           <>
@@ -1005,14 +1081,14 @@ export default function App() {
           </>
         )}
       </View>
- 
+
       <View style={styles.tabBar}>
         {tabs.map((tab) => {
           const active = tab.key === activeTab;
           return (
             <Pressable
               key={tab.key}
-              onPress={() => handleTabPress(tab.key)} // Aplicando a função animada aqui
+              onPress={() => handleTabPress(tab.key)}
               style={[styles.tab, active && styles.activeTab]}
             >
               <Text style={[styles.tabText, active && styles.activeTabText]}>
@@ -1024,563 +1100,92 @@ export default function App() {
       </View>
     </SafeAreaView>
   );
-} 
+}
 
 
 const styles = StyleSheet.create({
-
-  // ==========================================
-  // CONFIGURAÇÕES GLOBAIS E ESTRUTURA
-  // ==========================================
-  safeArea: {
-    flex: 1,
-    backgroundColor: "#0b1221",
-    paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0
-  },
-  appShell: {
-    flex: 1
-  },
-  loadingScreen: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#0b1221"
-  },
-  loadingText: {
-    marginTop: 12,
-    color: "#a0aec0",
-    fontSize: 15
-  },
-  screenContent: {
-    padding: 20,
-    paddingBottom: 112
-  },
-
-  // ==========================================
-  // TELA DE AUTENTICAÇÃO (LOGIN E CADASTRO)
-  // ==========================================
-  authContainer: {
-    flex: 1,
-    backgroundColor: "#0b1221"
-  },
-  authContent: {
-    flexGrow: 1,
-    justifyContent: "center",
-    padding: 24
-  },
-  loginFormCard: {
-    width: "100%",
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: "#1e2f4c",
-    backgroundColor: "#121e31",
-    padding: 24
-  },
-  logoBlock: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 14,
-    marginBottom: 14
-  },
-  brandMark: {
-    width: 58,
-    height: 58,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#2b5292",
-    borderWidth: 2,
-    borderColor: "#1a365d"
-  },
-  brandInitial: {
-    color: "#ffffff",
-    fontSize: 28,
-    fontWeight: "900",
-    letterSpacing: 1,
-  },
-  authTitle: {
-    color: "#ffffff",
-    fontSize: 32,
-    fontWeight: "800",
-    textAlign: "center",
-    letterSpacing: -0.5,
-  },
-  authSubtitle: {
-    color: "#94a3b8",
-    fontSize: 16,
-    lineHeight: 24,
-    marginBottom: 32,
-    textAlign: "center"
-  },
-
-  // ==========================================
-  // SELETORES (LOGIN / CADASTRO)
-  // ==========================================
-  segmented: {
-    flexDirection: "row",
-    backgroundColor: "#060b14",
-    borderWidth: 1,
-    borderColor: "#1e2f4c",
-    borderRadius: 16,
-    padding: 6,
-    marginBottom: 24
-  },
-  segment: {
-    flex: 1,
-    minHeight: 44,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 10
-  },
-  segmentActive: {
-    backgroundColor: "#2b5292",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 5,
-  },
-  segmentText: {
-    color: "#64748b",
-    fontWeight: "600",
-    letterSpacing: 0.5
-  },
-  segmentTextActive: {
-    color: "#ffffff",
-    fontWeight: "800"
-  },
-
-  // ==========================================
-  // UPLOAD DE FOTO DE PERFIL
-  // ==========================================
-  profilePhotoPicker: {
-    minHeight: 84,
-    borderWidth: 1.5,
-    borderColor: "#2b5292",
-    borderStyle: "dashed",
-    borderRadius: 16,
-    backgroundColor: "rgba(43, 82, 146, 0.05)",
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 16,
-    padding: 16,
-    marginBottom: 20
-  },
-  profilePhotoPreview: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: "#121e31",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 3,
-  },
-  profilePhotoPlaceholder: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#2b5292",
-    borderWidth: 2,
-    borderColor: "#1a365d"
-  },
-  profilePhotoInitial: {
-    color: "#ffffff",
-    fontSize: 22,
-    fontWeight: "800"
-  },
-  profilePhotoTextBox: {
-    flex: 1
-  },
-  profilePhotoTitle: {
-    color: "#ffffff",
-    fontSize: 16,
-    fontWeight: "800",
-    marginBottom: 4
-  },
-  profilePhotoDescription: {
-    color: "#94a3b8",
-    fontSize: 13,
-    lineHeight: 18
-  },
-
-  // ==========================================
-  // INPUTS, FORMULÁRIOS E BOTÕES GLOBAIS
-  // ==========================================
-  field: {
-    marginBottom: 14
-  },
-  label: {
-    color: "#a0aec0",
-    fontSize: 14,
-    fontWeight: "700",
-    marginBottom: 7
-  },
-  input: {
-    minHeight: 48,
-    borderWidth: 1,
-    borderColor: "#1e2f4c",
-    borderRadius: 8,
-    color: "#ffffff",
-    backgroundColor: "#0b1221",
-    paddingHorizontal: 14,
-    fontSize: 16
-  },
-  textArea: {
-    minHeight: 104,
-    paddingTop: 12,
-    textAlignVertical: "top"
-  },
-  button: {
-    minHeight: 50,
-    borderRadius: 8,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#2ecc71",
-    paddingHorizontal: 18,
-    marginTop: 8
-  },
-  secondaryButton: {
-    backgroundColor: "#0b1221",
-    borderWidth: 1,
-    borderColor: "#1e2f4c"
-  },
-  dangerButton: {
-    backgroundColor: "#ff4757"
-  },
-  disabledButton: {
-    opacity: 0.6
-  },
-  pressedButton: {
-    transform: [{ scale: 0.99 }]
-  },
-  buttonText: {
-    color: "#ffffff",
-    fontSize: 16,
-    fontWeight: "800"
-  },
-  secondaryButtonText: {
-    color: "#ffffff"
-  },
-
-  // ==========================================
-  // TELA PRINCIPAL E ESTATÍSTICAS
-  // ==========================================
-  eyebrow: {
-    color: "#2ecc71",
-    fontSize: 13,
-    fontWeight: "800",
-    textTransform: "uppercase",
-    letterSpacing: 1.5
-  },
-  title: {
-    color: "#ffffff",
-    fontSize: 32,
-    fontWeight: "800",
-    marginTop: 4,
-    marginBottom: 24,
-    letterSpacing: -0.5
-  },
-  statsGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 16
-  },
-  statCard: {
-    width: "47%",
-    minHeight: 110,
-    borderRadius: 16,
-    backgroundColor: "#121e31",
-    borderWidth: 1,
-    borderColor: "#1e2f4c",
-    padding: 16,
-    justifyContent: "space-between",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 5,
-    elevation: 4,
-  },
-  statValue: {
-    color: "#ffffff",
-    fontSize: 28,
-    fontWeight: "900"
-  },
-  statLabel: {
-    color: "#a0aec0",
-    fontSize: 13,
-    fontWeight: "600",
-    lineHeight: 18,
-    marginTop: 8
-  },
-
-  // ==========================================
-  // LISTA DE LIVROS E LEITURAS
-  // ==========================================
-  sectionHeader: {
-    marginTop: 24,
-    marginBottom: 12
-  },
-  sectionTitle: {
-    color: "#ffffff",
-    fontSize: 20,
-    fontWeight: "800"
-  },
-  emptyState: {
-    borderWidth: 1,
-    borderColor: "#1e2f4c",
-    borderRadius: 8,
-    backgroundColor: "#121e31",
-    padding: 18
-  },
-  emptyTitle: {
-    color: "#ffffff",
-    fontSize: 17,
-    fontWeight: "800",
-    marginBottom: 6
-  },
-  emptyDescription: {
-    color: "#a0aec0",
-    lineHeight: 21
-  },
-  readingRow: {
-    padding: 14,
-    borderRadius: 8,
-    backgroundColor: "#121e31",
-    borderWidth: 1,
-    borderColor: "#1e2f4c",
-    marginBottom: 10
-  },
-  readingTitle: {
-    color: "#ffffff",
-    fontWeight: "800",
-    fontSize: 16
-  },
-  readingMeta: {
-    color: "#a0aec0",
-    marginTop: 5
-  },
-  bookCard: {
-    flexDirection: "row",
-    gap: 14,
-    backgroundColor: "#121e31",
-    borderWidth: 1,
-    borderColor: "#1e2f4c",
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 12
-  },
-  cover: {
-    width: 76,
-    height: 108,
-    borderRadius: 6,
-    backgroundColor: "#0b1221"
-  },
-  coverFallback: {
-    width: 76,
-    height: 108,
-    borderRadius: 6,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#2b5292"
-  },
-  coverFallbackText: {
-    color: "#ffffff",
-    fontSize: 30,
-    fontWeight: "800"
-  },
-  bookInfo: {
-    flex: 1
-  },
-  bookTitle: {
-    color: "#ffffff",
-    fontSize: 17,
-    fontWeight: "800"
-  },
-  bookDescription: {
-    color: "#a0aec0",
-    lineHeight: 20,
-    marginTop: 5
-  },
-  progressBadge: {
-    alignSelf: "flex-start",
-    color: "#2ecc71",
-    backgroundColor: "rgba(46, 204, 113, 0.1)",
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-    marginTop: 8,
-    fontSize: 12,
-    fontWeight: "800"
-  },
-
-  // ==========================================
-  // AÇÕES MENORES E ARQUIVOS (LIVROS)
-  // ==========================================
-  inlineActions: {
-    flexDirection: "row",
-    gap: 8,
-    marginTop: 12
-  },
-  smallAction: {
-    minHeight: 36,
-    borderRadius: 8,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#2ecc71",
-    paddingHorizontal: 16
-  },
-  smallActionText: {
-    color: "#ffffff",
-    fontWeight: "800"
-  },
-  smallDangerAction: {
-    minHeight: 36,
-    borderRadius: 8,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(255, 71, 87, 0.12)",
-    paddingHorizontal: 16
-  },
-  smallDangerText: {
-    color: "#ff4757",
-    fontWeight: "800"
-  },
-  fileRow: {
-    flexDirection: "row",
-    gap: 10,
-    marginBottom: 12
-  },
-  fileButton: {
-    flex: 1,
-    minHeight: 48,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#1e2f4c",
-    backgroundColor: "#121e31",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 10
-  },
-  fileButtonText: {
-    color: "#ffffff",
-    fontWeight: "800",
-    textAlign: "center"
-  },
-
-  // ==========================================
-  // TELA DE PERFIL E CONFIGURAÇÕES
-  // ==========================================
-  profileBox: {
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#1e2f4c",
-    backgroundColor: "#121e31",
-    padding: 14,
-    marginBottom: 18
-  },
-  profileLabel: {
-    color: "#a0aec0",
-    fontWeight: "700",
-    marginBottom: 4
-  },
-  profileValue: {
-    color: "#ffffff",
-    fontSize: 16,
-    fontWeight: "800"
-  },
-  divider: {
-    height: 1,
-    backgroundColor: "#1e2f4c",
-    marginVertical: 22
-  },
-  apiBox: {
-    marginTop: 24,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: "#1e2f4c",
-    borderRadius: 8,
-    backgroundColor: "#0b1221"
-  },
-  apiTitle: {
-    color: "#a0aec0",
-    fontWeight: "800",
-    marginBottom: 10
-  },
-
-  // ==========================================
-  // NAVEGAÇÃO INFERIOR (TAB BAR)
-  // ==========================================
-  tabBar: {
-    position: "absolute",
-    left: 14,
-    right: 14,
-    bottom: 14,
-    minHeight: 64,
-    borderRadius: 8,
-    flexDirection: "row",
-    backgroundColor: "#121e31",
-    borderWidth: 1,
-    borderColor: "#1e2f4c",
-    padding: 6
-  },
-  tab: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 6
-  },
-  activeTab: {
-    backgroundColor: "#2b5292"
-  },
-  tabText: {
-    color: "#a0aec0",
-    fontSize: 12,
-    fontWeight: "800"
-  },
-  activeTabText: {
-    color: "#ffffff"
-  },
-
-  // ==========================================
-  // SESSÃO DE LEITURA (CRONÔMETRO)
-  // ==========================================
-  sessionPanel: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(11, 18, 33, 0.82)",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 20
-  },
-  sessionCard: {
-    width: "100%",
-    borderRadius: 8,
-    backgroundColor: "#121e31",
-    borderWidth: 1,
-    borderColor: "#1e2f4c",
-    padding: 18
-  },
-  sessionEyebrow: {
-    color: "#2ecc71",
-    fontWeight: "800",
-    textTransform: "uppercase",
-    letterSpacing: 0,
-    marginBottom: 5
-  },
-  sessionTitle: {
-    color: "#ffffff",
-    fontSize: 22,
-    fontWeight: "800"
-  },
-  timer: {
-    color: "#ffffff",
-    fontSize: 42,
-    fontWeight: "800",
-    textAlign: "center",
-    marginVertical: 18
-  }
+  safeArea: { flex: 1, backgroundColor: "#0b1221", paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0 },
+  appShell: { flex: 1 },
+  loadingScreen: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#0b1221" },
+  loadingText: { marginTop: 12, color: "#a0aec0", fontSize: 15 },
+  screenContent: { padding: 20, paddingBottom: 112 },
+  authContainer: { flex: 1, backgroundColor: "#0b1221" },
+  authContent: { flexGrow: 1, justifyContent: "center", padding: 24 },
+  loginFormCard: { width: "100%", borderRadius: 20, borderWidth: 1, borderColor: "#1e2f4c", backgroundColor: "#121e31", padding: 24 },
+  logoBlock: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 14, marginBottom: 14 },
+  brandMark: { width: 58, height: 58, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: "#2b5292", borderWidth: 2, borderColor: "#1a365d" },
+  brandInitial: { color: "#ffffff", fontSize: 28, fontWeight: "900", letterSpacing: 1 },
+  authTitle: { color: "#ffffff", fontSize: 32, fontWeight: "800", textAlign: "center", letterSpacing: -0.5 },
+  authSubtitle: { color: "#94a3b8", fontSize: 16, lineHeight: 24, marginBottom: 32, textAlign: "center" },
+  segmented: { flexDirection: "row", backgroundColor: "#060b14", borderWidth: 1, borderColor: "#1e2f4c", borderRadius: 16, padding: 6, marginBottom: 24 },
+  segment: { flex: 1, minHeight: 44, alignItems: "center", justifyContent: "center", borderRadius: 10 },
+  segmentActive: { backgroundColor: "#2b5292", shadowColor: "#000", shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 4, elevation: 5 },
+  segmentText: { color: "#64748b", fontWeight: "600", letterSpacing: 0.5 },
+  segmentTextActive: { color: "#ffffff", fontWeight: "800" },
+  profilePhotoPicker: { minHeight: 84, borderWidth: 1.5, borderColor: "#2b5292", borderStyle: "dashed", borderRadius: 16, backgroundColor: "rgba(43, 82, 146, 0.05)", flexDirection: "row", alignItems: "center", gap: 16, padding: 16, marginBottom: 20 },
+  profilePhotoPreview: { width: 56, height: 56, borderRadius: 28, backgroundColor: "#121e31", shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 3, elevation: 3 },
+  profilePhotoPlaceholder: { width: 56, height: 56, borderRadius: 28, alignItems: "center", justifyContent: "center", backgroundColor: "#2b5292", borderWidth: 2, borderColor: "#1a365d" },
+  profilePhotoInitial: { color: "#ffffff", fontSize: 22, fontWeight: "800" },
+  profilePhotoTextBox: { flex: 1 },
+  profilePhotoTitle: { color: "#ffffff", fontSize: 16, fontWeight: "800", marginBottom: 4 },
+  profilePhotoDescription: { color: "#94a3b8", fontSize: 13, lineHeight: 18 },
+  field: { marginBottom: 14 },
+  label: { color: "#a0aec0", fontSize: 14, fontWeight: "700", marginBottom: 7 },
+  input: { minHeight: 48, borderWidth: 1, borderColor: "#1e2f4c", borderRadius: 8, color: "#ffffff", backgroundColor: "#0b1221", paddingHorizontal: 14, fontSize: 16 },
+  textArea: { minHeight: 104, paddingTop: 12, textAlignVertical: "top" },
+  button: { minHeight: 50, borderRadius: 8, alignItems: "center", justifyContent: "center", backgroundColor: "#2ecc71", paddingHorizontal: 18, marginTop: 8 },
+  secondaryButton: { backgroundColor: "#0b1221", borderWidth: 1, borderColor: "#1e2f4c" },
+  dangerButton: { backgroundColor: "#ff4757" },
+  disabledButton: { opacity: 0.6 },
+  pressedButton: { transform: [{ scale: 0.99 }] },
+  buttonText: { color: "#ffffff", fontSize: 16, fontWeight: "800" },
+  secondaryButtonText: { color: "#ffffff" },
+  eyebrow: { color: "#2ecc71", fontSize: 13, fontWeight: "800", textTransform: "uppercase", letterSpacing: 1.5 },
+  title: { color: "#ffffff", fontSize: 32, fontWeight: "800", marginTop: 4, marginBottom: 24, letterSpacing: -0.5 },
+  statsGrid: { flexDirection: "row", flexWrap: "wrap", gap: 16 },
+  statCard: { width: "47%", minHeight: 110, borderRadius: 16, backgroundColor: "#121e31", borderWidth: 1, borderColor: "#1e2f4c", padding: 16, justifyContent: "space-between", shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.25, shadowRadius: 5, elevation: 4 },
+  statValue: { color: "#ffffff", fontSize: 28, fontWeight: "900" },
+  statLabel: { color: "#a0aec0", fontSize: 13, fontWeight: "600", lineHeight: 18, marginTop: 8 },
+  sectionHeader: { marginTop: 24, marginBottom: 12 },
+  sectionTitle: { color: "#ffffff", fontSize: 20, fontWeight: "800" },
+  emptyState: { borderWidth: 1, borderColor: "#1e2f4c", borderRadius: 8, backgroundColor: "#121e31", padding: 18 },
+  emptyTitle: { color: "#ffffff", fontSize: 17, fontWeight: "800", marginBottom: 6 },
+  emptyDescription: { color: "#a0aec0", lineHeight: 21 },
+  readingRow: { padding: 14, borderRadius: 8, backgroundColor: "#121e31", borderWidth: 1, borderColor: "#1e2f4c", marginBottom: 10 },
+  readingTitle: { color: "#ffffff", fontWeight: "800", fontSize: 16 },
+  readingMeta: { color: "#a0aec0", marginTop: 5 },
+  bookCard: { flexDirection: "row", gap: 14, backgroundColor: "#121e31", borderWidth: 1, borderColor: "#1e2f4c", borderRadius: 8, padding: 12, marginBottom: 12 },
+  cover: { width: 76, height: 108, borderRadius: 6, backgroundColor: "#0b1221" },
+  coverFallback: { width: 76, height: 108, borderRadius: 6, alignItems: "center", justifyContent: "center", backgroundColor: "#2b5292" },
+  coverFallbackText: { color: "#ffffff", fontSize: 30, fontWeight: "800" },
+  bookInfo: { flex: 1 },
+  bookTitle: { color: "#ffffff", fontSize: 17, fontWeight: "800" },
+  bookDescription: { color: "#a0aec0", lineHeight: 20, marginTop: 5 },
+  progressBadge: { alignSelf: "flex-start", color: "#2ecc71", backgroundColor: "rgba(46, 204, 113, 0.1)", borderRadius: 6, paddingHorizontal: 8, paddingVertical: 5, marginTop: 8, fontSize: 12, fontWeight: "800" },
+  inlineActions: { flexDirection: "row", gap: 8, marginTop: 12 },
+  smallAction: { minHeight: 36, borderRadius: 8, alignItems: "center", justifyContent: "center", backgroundColor: "#2ecc71", paddingHorizontal: 16 },
+  smallActionText: { color: "#ffffff", fontWeight: "800" },
+  smallDangerAction: { minHeight: 36, borderRadius: 8, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255, 71, 87, 0.12)", paddingHorizontal: 16 },
+  smallDangerText: { color: "#ff4757", fontWeight: "800" },
+  fileRow: { flexDirection: "row", gap: 10, marginBottom: 12 },
+  fileButton: { flex: 1, minHeight: 48, borderRadius: 8, borderWidth: 1, borderColor: "#1e2f4c", backgroundColor: "#121e31", alignItems: "center", justifyContent: "center", paddingHorizontal: 10 },
+  fileButtonText: { color: "#ffffff", fontWeight: "800", textAlign: "center" },
+  profileBox: { borderRadius: 8, borderWidth: 1, borderColor: "#1e2f4c", backgroundColor: "#121e31", padding: 14, marginBottom: 18 },
+  profileLabel: { color: "#a0aec0", fontWeight: "700", marginBottom: 4 },
+  profileValue: { color: "#ffffff", fontSize: 16, fontWeight: "800" },
+  divider: { height: 1, backgroundColor: "#1e2f4c", marginVertical: 22 },
+  apiBox: { marginTop: 24, padding: 14, borderWidth: 1, borderColor: "#1e2f4c", borderRadius: 8, backgroundColor: "#0b1221" },
+  apiTitle: { color: "#a0aec0", fontWeight: "800", marginBottom: 10 },
+  tabBar: { position: "absolute", left: 14, right: 14, bottom: 14, minHeight: 64, borderRadius: 8, flexDirection: "row", backgroundColor: "#121e31", borderWidth: 1, borderColor: "#1e2f4c", padding: 6 },
+  tab: { flex: 1, alignItems: "center", justifyContent: "center", borderRadius: 6 },
+  activeTab: { backgroundColor: "#2b5292" },
+  tabText: { color: "#a0aec0", fontSize: 12, fontWeight: "800" },
+  activeTabText: { color: "#ffffff" },
+  readerLoading: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, alignItems: "center", justifyContent: "center", backgroundColor: "#0b1221", zIndex: 10 },
+  readerLoadingText: { color: "#a0aec0", fontSize: 14, marginTop: 12 },
+  sessionPanel: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(11, 18, 33, 0.82)", alignItems: "center", justifyContent: "center", padding: 20 },
+  sessionCard: { width: "100%", borderRadius: 8, backgroundColor: "#121e31", borderWidth: 1, borderColor: "#1e2f4c", padding: 18 },
+  sessionEyebrow: { color: "#2ecc71", fontWeight: "800", textTransform: "uppercase", letterSpacing: 0, marginBottom: 5 },
+  sessionTitle: { color: "#ffffff", fontSize: 22, fontWeight: "800" },
+  timer: { color: "#ffffff", fontSize: 42, fontWeight: "800", textAlign: "center", marginVertical: 18 }
 });
