@@ -232,38 +232,44 @@ function ReaderScreen({ session, onClose }) {
         ".leitor-book-title{max-width:140px!important;font-size:13px!important}",
         ".leitor-page-nav{display:none!important}",
 
-        // Botão Assistente compacto mas visível
-        ".leitor-ai-toggle{display:flex!important;padding:6px 12px!important;font-size:12px!important;gap:6px!important}",
+        // Botão Assistente no topo, com área de toque maior
+        ".leitor-ai-toggle{display:flex!important;min-height:40px!important;padding:8px 14px!important;font-size:12px!important;gap:6px!important}",
         ".leitor-back-btn{padding:6px 12px!important;font-size:12px!important}",
 
         // PDF body
         ".leitor-pdf-body{padding:8px!important;overflow:hidden!important}",
 
-        // ── Drawer da IA — overlay flutuante lateral (85% da tela, máx 380px) ──
-        // Sobrescreve o width:0 -> 380px do desktop para um overlay no mobile
-        ".leitor-drawer{position:fixed!important;top:0!important;right:0!important;bottom:0!important;left:auto!important;width:25%!important;max-width:380px!important;height:100%!important;z-index:1000!important;opacity:1!important;transform:translateX(100%)!important;transition:transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1)!important;box-shadow:-10px 0 30px rgba(0,0,0,0.5)!important}",
-        ".leitor-drawer.open{width:25%!important;max-width:380px!important;transform:translateX(0)!important;opacity:1!important}",
-        ".leitor-drawer-inner{width:100%!important;height:100%!important;background:rgba(14, 21, 37, 0.98)!important}",
+        // ── Drawer da IA — bottom sheet compacto no mobile ──
+        ".leitor-body{position:relative!important}",
+        ".leitor-drawer{position:fixed!important;top:auto!important;right:auto!important;bottom:72px!important;left:12px!important;width:min(86vw,340px)!important;max-width:none!important;height:min(42vh,330px)!important;z-index:1000!important;opacity:0!important;transform:translateY(calc(100% + 86px))!important;transition:transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1),opacity 0.2s ease!important;border:1px solid rgba(255,255,255,0.08)!important;border-radius:14px!important;box-shadow:0 -10px 30px rgba(0,0,0,0.42)!important}",
+        ".leitor-drawer.open{width:min(86vw,340px)!important;max-width:none!important;transform:translateY(0)!important;opacity:1!important}",
+        ".leitor-drawer-inner{width:100%!important;height:100%!important;border-radius:14px!important;background:rgba(14, 21, 37, 0.98)!important}",
 
         // Header do drawer mais compacto
-        ".leitor-drawer-header{padding:14px 16px!important}",
-        ".leitor-drawer-title{font-size:14px!important}",
+        ".leitor-drawer-header{padding:7px 10px!important}",
+        ".leitor-drawer-title{font-size:12px!important}",
+        ".leitor-context-info{display:none!important}",
+        ".leitor-status-badge{font-size:9px!important;padding:2px 6px!important}",
 
         // Chat area
-        ".leitor-chat-area{padding:14px!important;gap:14px!important}",
-        ".leitor-user-bubble, .leitor-ai-bubble{max-width:92%!important;padding:10px 14px!important}",
-        ".leitor-user-text, .leitor-ai-text{font-size:13px!important;line-height:1.5!important}",
+        ".leitor-chat-area{padding:8px 10px!important;gap:7px!important}",
+        ".leitor-empty-state{min-height:80px!important;padding:8px 0!important;gap:8px!important}",
+        ".leitor-empty-icon{width:24px!important;height:24px!important}",
+        ".leitor-empty-text{font-size:12px!important;line-height:1.35!important}",
+        ".leitor-user-bubble,.leitor-ai-bubble{max-width:82%!important;padding:7px 9px!important;border-radius:12px!important}",
+        ".leitor-user-text,.leitor-ai-text{font-size:12px!important;line-height:1.35!important}",
+        ".leitor-bubble-label{font-size:8px!important;margin-bottom:3px!important}",
 
         // Suggestion chips
-        ".leitor-chips{padding:0 14px 12px!important;gap:6px!important}",
-        ".leitor-chip{font-size:11px!important;padding:6px 12px!important}",
+        ".leitor-chips{padding:0 10px 7px!important;gap:5px!important;flex-wrap:nowrap!important;overflow-x:auto!important}",
+        ".leitor-chip{flex:0 0 auto!important;font-size:10px!important;padding:5px 8px!important}",
 
         // Input area
-        ".leitor-input-area{padding:12px 14px 16px!important}",
-        ".leitor-input-wrap{padding:10px 14px!important}",
-        ".leitor-textarea{font-size:14px!important}",
+        ".leitor-input-area{padding:7px 10px 9px!important}",
+        ".leitor-input-wrap{padding:6px 8px!important;gap:4px!important;border-radius:10px!important}",
+        ".leitor-textarea{font-size:12px!important;line-height:1.3!important;max-height:52px!important}",
         ".leitor-hint{display:none!important}",
-        ".leitor-send-btn{padding:6px 14px!important;font-size:12px!important}",
+        ".leitor-send-btn{min-height:26px!important;padding:5px 10px!important;font-size:11px!important}",
 
         // PDF viewer e toolbar
         ".pdf-viewer{width:100%!important;gap:6px!important}",
