@@ -13,20 +13,21 @@ import {
   View
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
-import globalStyles from "../styles/globalStyles";
-import authStyles from "../styles/auth.styles";
+import getGlobalStyles from "../styles/globalStyles";
+import getAuthStyles from "../styles/auth.styles";
 import { saveApiUrl, saveTokens } from "../utils/storage";
 import { loginUser, registerUser } from "../api/timerbook";
 import { setRuntimeApiUrl } from "../api/client";
 import { getErrorMessage } from "../utils/helpers";
 import Field from "../components/common/Field";
 import PrimaryButton from "../components/common/PrimaryButton";
+import Logo from "../assets/TimerbookLogo.svg";
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
-function AuthScreen({ apiUrl, setApiUrl, onAuthenticated }) {
+function AuthScreen({ apiUrl, setApiUrl, onAuthenticated, theme }) {
   const [mode, setMode] = useState("login");
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
@@ -34,6 +35,9 @@ function AuthScreen({ apiUrl, setApiUrl, onAuthenticated }) {
   const [goal, setGoal] = useState("20");
   const [profilePhoto, setProfilePhoto] = useState(null);
   const [loading, setLoading] = useState(false);
+
+  const globalStyles = getGlobalStyles(theme);
+  const authStyles = getAuthStyles(theme);
 
   function toggleMode(newMode) {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -104,9 +108,7 @@ function AuthScreen({ apiUrl, setApiUrl, onAuthenticated }) {
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={authStyles.authContent}>
         <View style={authStyles.loginFormCard}>
           <View style={authStyles.logoBlock}>
-            <View style={authStyles.brandMark}>
-              <Text style={authStyles.brandInitial}>T</Text>
-            </View>
+            <Logo width={60} height={60} />
             <Text style={authStyles.authTitle}>TimerBook</Text>
           </View>
           <Text style={authStyles.authSubtitle}>Acesse sua biblioteca pessoal</Text>
@@ -149,20 +151,22 @@ function AuthScreen({ apiUrl, setApiUrl, onAuthenticated }) {
                   </Text>
                 </View>
               </Pressable>
-              <Field label="Usuario" value={username} onChangeText={setUsername} />
+              <Field theme={theme} label="Usuario" value={username} onChangeText={setUsername} />
             </>
           )}
  
           <Field
+            theme={theme}
             label="Email"
             value={email}
             onChangeText={setEmail}
             keyboardType="email-address"
             placeholder="voce@email.com"
           />
-          <Field label="Senha" value={password} onChangeText={setPassword} secureTextEntry />
+          <Field theme={theme} label="Senha" value={password} onChangeText={setPassword} secureTextEntry />
           {mode === "register" && (
             <Field
+              theme={theme}
               label="Meta diaria em minutos"
               value={goal}
               onChangeText={setGoal}
@@ -170,7 +174,7 @@ function AuthScreen({ apiUrl, setApiUrl, onAuthenticated }) {
             />
           )}
  
-          <PrimaryButton onPress={submit} disabled={loading}>
+          <PrimaryButton theme={theme} onPress={submit} disabled={loading}>
             {loading ? "Aguarde..." : mode === "login" ? "Entrar" : "Criar conta"}
           </PrimaryButton>
  
@@ -182,10 +186,10 @@ function AuthScreen({ apiUrl, setApiUrl, onAuthenticated }) {
               autoCapitalize="none"
               autoCorrect={false}
               placeholder="http://10.0.2.2:8080"
-              placeholderTextColor="#64748b"
+              placeholderTextColor={theme.subtext}
               style={globalStyles.input}
             />
-            <PrimaryButton onPress={persistApiUrl} variant="secondary">
+            <PrimaryButton theme={theme} onPress={persistApiUrl} variant="secondary">
               Salvar endereco da API
             </PrimaryButton>
           </View>

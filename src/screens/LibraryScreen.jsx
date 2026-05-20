@@ -1,7 +1,7 @@
 import React, { useMemo } from "react";
 import { FlatList, Image, Pressable, RefreshControl, Text, View } from "react-native";
-import globalStyles from "../styles/globalStyles";
-import libraryStyles from "../styles/library.styles";
+import getGlobalStyles from "../styles/globalStyles";
+import getLibraryStyles from "../styles/library.styles";
 import EmptyState from "../components/common/EmptyState";
 import { getBookCover, getBookTitle, getReadingBookId } from "../utils/helpers";
 
@@ -13,8 +13,12 @@ function LibraryScreen({
   onDeleteBook,
   onRefresh,
   refreshing,
-  onViewStats
+  onViewStats,
+  theme
 }) {
+  const globalStyles = getGlobalStyles(theme);
+  const libraryStyles = getLibraryStyles(theme);
+
   const inProgressByBookId = useMemo(() => {
     const map = new Map();
     inProgress.forEach((reading) => {
@@ -29,7 +33,7 @@ function LibraryScreen({
       data={books}
       keyExtractor={(item) => String(item.id)}
       contentContainerStyle={globalStyles.screenContent}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.accent} />}
       ListHeaderComponent={
         <View style={libraryStyles.sectionHeader}>
           <View>
@@ -40,6 +44,7 @@ function LibraryScreen({
       }
       ListEmptyComponent={
         <EmptyState
+          theme={theme}
           title="Sua biblioteca esta vazia"
           description="Cadastre seu primeiro livro na aba Novo."
         />

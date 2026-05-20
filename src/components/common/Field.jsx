@@ -1,8 +1,9 @@
 import React from 'react';
 import { View, Text, TextInput } from 'react-native';
-import globalStyles from '../../styles/globalStyles';
+import getGlobalStyles from '../../styles/globalStyles';
 
-function Field({ label, value, onChangeText, secureTextEntry, keyboardType, placeholder, multiline }) {
+function Field({ label, value, onChangeText, secureTextEntry, keyboardType, placeholder, multiline, theme }) {
+  const globalStyles = getGlobalStyles(theme);
   return (
     <View style={globalStyles.field}>
       <Text style={globalStyles.label}>{label}</Text>
@@ -12,7 +13,7 @@ function Field({ label, value, onChangeText, secureTextEntry, keyboardType, plac
         secureTextEntry={secureTextEntry}
         keyboardType={keyboardType}
         placeholder={placeholder}
-        placeholderTextColor="#64748b"
+        placeholderTextColor={theme.subtext}
         multiline={multiline}
         style={[globalStyles.input, multiline && globalStyles.textArea]}
       />

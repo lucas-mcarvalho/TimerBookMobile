@@ -1,15 +1,16 @@
 import { StyleSheet } from 'react-native';
+import { darkTheme } from './colors';
 
-const newBookStyles = StyleSheet.create({
+const getNewBookStyles = (theme = darkTheme) => StyleSheet.create({
   eyebrow: {
-    color: "#2ecc71",
+    color: theme.accent,
     fontSize: 13,
     fontWeight: "800",
     textTransform: "uppercase",
     letterSpacing: 1.5
   },
   title: {
-    color: "#ffffff",
+    color: theme.text,
     fontSize: 32,
     fontWeight: "800",
     marginTop: 4,
@@ -26,18 +27,18 @@ const newBookStyles = StyleSheet.create({
     minHeight: 56,
     borderRadius: 12,
     borderWidth: 1.5,
-    borderColor: "#1e2f4c",
-    backgroundColor: "#121e31",
+    borderColor: theme.border,
+    backgroundColor: theme.surface,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 10,
     borderStyle: "dashed",
   },
   fileButtonText: {
-    color: "#ffffff",
+    color: theme.text,
     fontWeight: "800",
     textAlign: "center"
   },
 });
 
-export default newBookStyles;
+export default getNewBookStyles;

@@ -1,12 +1,13 @@
 import { StyleSheet, Platform, StatusBar } from 'react-native';
+import { darkTheme } from './colors';
 
-const globalStyles = StyleSheet.create({
+const getGlobalStyles = (theme = darkTheme) => StyleSheet.create({
   // ==========================================
   // CONFIGURAÇÕES GLOBAIS E ESTRUTURA
   // ==========================================
   safeArea: {
     flex: 1,
-    backgroundColor: "#0b1221",
+    backgroundColor: theme.background,
     paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0
   },
   appShell: {
@@ -16,11 +17,11 @@ const globalStyles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#0b1221"
+    backgroundColor: theme.background
   },
   loadingText: {
     marginTop: 12,
-    color: "#a0aec0",
+    color: theme.subtext,
     fontSize: 15
   },
   screenContent: {
@@ -40,7 +41,7 @@ const globalStyles = StyleSheet.create({
     justifyContent: "center",
     marginBottom: 20,
     borderWidth: 4,
-    borderColor: "#fff",
+    borderColor: theme.surface,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
@@ -65,7 +66,7 @@ const globalStyles = StyleSheet.create({
     marginBottom: 14
   },
   label: {
-    color: "#a0aec0",
+    color: theme.subtext,
     fontSize: 14,
     fontWeight: "700",
     marginBottom: 7
@@ -73,10 +74,10 @@ const globalStyles = StyleSheet.create({
   input: {
     minHeight: 48,
     borderWidth: 1,
-    borderColor: "#1e2f4c",
+    borderColor: theme.border,
     borderRadius: 8,
-    color: "#ffffff",
-    backgroundColor: "#0b1221",
+    color: theme.text,
+    backgroundColor: theme.inputBg,
     paddingHorizontal: 14,
     fontSize: 16
   },
@@ -90,17 +91,17 @@ const globalStyles = StyleSheet.create({
     borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#2ecc71",
+    backgroundColor: theme.accent,
     paddingHorizontal: 18,
     marginTop: 8
   },
   secondaryButton: {
-    backgroundColor: "#0b1221",
+    backgroundColor: theme.background,
     borderWidth: 1,
-    borderColor: "#1e2f4c"
+    borderColor: theme.border
   },
   dangerButton: {
-    backgroundColor: "#ff4757"
+    backgroundColor: theme.danger
   },
   disabledButton: {
     opacity: 0.6
@@ -114,7 +115,7 @@ const globalStyles = StyleSheet.create({
     fontWeight: "800"
   },
   secondaryButtonText: {
-    color: "#ffffff"
+    color: theme.text
   },
 
   // ==========================================
@@ -122,20 +123,51 @@ const globalStyles = StyleSheet.create({
   // ==========================================
   emptyState: {
     borderWidth: 1,
-    borderColor: "#1e2f4c",
+    borderColor: theme.border,
     borderRadius: 8,
-    backgroundColor: "#121e31",
+    backgroundColor: theme.surface,
     padding: 18
   },
   emptyTitle: {
-    color: "#ffffff",
+    color: theme.text,
     fontSize: 17,
     fontWeight: "800",
     marginBottom: 6
   },
   emptyDescription: {
-    color: "#a0aec0",
+    color: theme.subtext,
     lineHeight: 21
+  },
+
+  // ==========================================
+  // ESTATÍSTICAS E CARDS
+  // ==========================================
+  statCard: {
+    width: "47%",
+    minHeight: 110,
+    borderRadius: 16,
+    backgroundColor: theme.surface,
+    borderWidth: 1,
+    borderColor: theme.border,
+    padding: 16,
+    justifyContent: "space-between",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 5,
+    elevation: 4,
+  },
+  statValue: {
+    color: theme.text,
+    fontSize: 28,
+    fontWeight: "900"
+  },
+  statLabel: {
+    color: theme.subtext,
+    fontSize: 13,
+    fontWeight: "600",
+    lineHeight: 18,
+    marginTop: 8
   },
 
   // ==========================================
@@ -149,10 +181,15 @@ const globalStyles = StyleSheet.create({
     minHeight: 64,
     borderRadius: 8,
     flexDirection: "row",
-    backgroundColor: "#121e31",
+    backgroundColor: theme.tabBarBg,
     borderWidth: 1,
-    borderColor: "#1e2f4c",
-    padding: 6
+    borderColor: theme.tabBarBorder,
+    padding: 6,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 5,
   },
   tab: {
     flex: 1,
@@ -161,10 +198,10 @@ const globalStyles = StyleSheet.create({
     borderRadius: 6
   },
   activeTab: {
-    backgroundColor: "#2b5292"
+    backgroundColor: theme.primary
   },
   tabText: {
-    color: "#a0aec0",
+    color: theme.subtext,
     fontSize: 12,
     fontWeight: "800"
   },
@@ -177,15 +214,15 @@ const globalStyles = StyleSheet.create({
   // ==========================================
   readerLoading: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "#0b1221",
+    backgroundColor: theme.background,
     alignItems: "center",
     justifyContent: "center",
   },
   readerLoadingText: {
     marginTop: 12,
-    color: "#a0aec0",
+    color: theme.subtext,
     fontSize: 15
   },
 });
 
-export default globalStyles;
+export default getGlobalStyles;

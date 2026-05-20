@@ -1,8 +1,9 @@
 import React from 'react';
 import { View, Text } from 'react-native';
-import globalStyles from '../../styles/globalStyles';
+import getGlobalStyles from '../../styles/globalStyles';
 
-function StatCard({ label, value }) {
+function StatCard({ label, value, theme }) {
+  const globalStyles = getGlobalStyles(theme);
   return (
     <View style={globalStyles.statCard}>
       <Text style={globalStyles.statValue}>{value}</Text>

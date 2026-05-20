@@ -14,10 +14,7 @@ import { getReadingStats } from "../api/timerbook";
 
 const screenWidth = Dimensions.get("window").width;
 
-const Estatisticas = ({ readingId, onBack }) => {
-  const systemTheme = useColorScheme();
-  const isDarkMode = systemTheme === "dark";
-
+const Estatisticas = ({ readingId, onBack, isDarkMode }) => {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState(null);

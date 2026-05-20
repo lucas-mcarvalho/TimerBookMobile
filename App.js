@@ -14,7 +14,8 @@ import {
 import { StatusBar as ExpoStatusBar } from "expo-status-bar";
 
 // --- Styles ---
-import globalStyles from "./src/styles/globalStyles";
+import getGlobalStyles from "./src/styles/globalStyles";
+import { lightTheme, darkTheme } from "./src/styles/colors";
 
 // --- Screens & Components ---
 import AuthScreen from "./src/screens/AuthScreen";
@@ -29,8 +30,10 @@ import Estatisticas from "./src/components/estatisticas";
 import {
   clearSessionStorage,
   getStoredApiUrl,
+  getStoredTheme,
   getStoredToken,
   saveApiUrl,
+  saveTheme,
   saveTokens
 } from "./src/utils/storage";
 import {
@@ -77,25 +80,46 @@ export default function App() {
   const [savingBook, setSavingBook] = useState(false);
   const [statsReadingId, setStatsReadingId] = useState(null);
  
+  // ── Theme state ──
+  const [themeMode, setThemeMode] = useState("dark");
+  const currentTheme = themeMode === "light" ? lightTheme : darkTheme;
+  const globalStyles = getGlobalStyles(currentTheme);
+
   // ── Reader state (replaces ReadingSessionPanel) ──
   const [readerSession, setReaderSession] = useState(null);
  
-  // ── Boot: restore stored API URL + token ──
+  // ── Boot: restore stored API URL + token + theme ──
   useEffect(() => {
     async function restore() {
-      const storedApiUrl = await getStoredApiUrl();
-      const token = await getStoredToken();
+      const [storedApiUrl, token, storedTheme] = await Promise.all([
+        getStoredApiUrl(),
+        getStoredToken(),
+        getStoredTheme()
+      ]);
+
       if (storedApiUrl) {
         setApiUrl(storedApiUrl);
         setRuntimeApiUrl(storedApiUrl);
       } else {
         setRuntimeApiUrl(apiUrl);
       }
+      
+      if (storedTheme) {
+        setThemeMode(storedTheme);
+      }
+
       setAuthenticated(Boolean(token));
       setBooting(false);
     }
     restore();
   }, []);
+ 
+  async function toggleTheme() {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    const newMode = themeMode === "light" ? "dark" : "light";
+    setThemeMode(newMode);
+    await saveTheme(newMode);
+  }
  
   useEffect(() => {
     if (authenticated) loadAppData();
@@ -274,8 +298,9 @@ export default function App() {
   if (!authenticated) {
     return (
       <SafeAreaView style={globalStyles.safeArea}>
-        <ExpoStatusBar style="light" />
+        <ExpoStatusBar style={themeMode === "light" ? "dark" : "light"} />
         <AuthScreen
+          theme={currentTheme}
           apiUrl={apiUrl}
           setApiUrl={setApiUrl}
           onAuthenticated={handleAuthenticated}
@@ -288,7 +313,8 @@ export default function App() {
   if (readerSession) {
     return (
       <ReaderScreen
-        session={readerSession}
+        theme={currentTheme}
+        session={{ ...readerSession, themeMode }}
         onClose={handleCloseReader}
       />
     );
@@ -297,11 +323,12 @@ export default function App() {
   // ── Main App ──
   return (
     <SafeAreaView style={globalStyles.safeArea}>
-      <ExpoStatusBar style="light" />
+      <ExpoStatusBar style={themeMode === "light" ? "dark" : "light"} />
       
       <View style={globalStyles.appShell}>
         {statsReadingId ? (
           <Estatisticas 
+            isDarkMode={themeMode === "dark"}
             readingId={statsReadingId} 
             onBack={() => setStatsReadingId(null)} 
           />
@@ -309,6 +336,7 @@ export default function App() {
           <>
             {activeTab === "home" && (
               <HomeScreen
+                theme={currentTheme}
                 apiUrl={apiUrl}
                 user={user}
                 stats={stats}
@@ -319,6 +347,7 @@ export default function App() {
             )}
             {activeTab === "library" && (
               <LibraryScreen
+                theme={currentTheme}
                 apiUrl={apiUrl}
                 books={books}
                 inProgress={inProgress}
@@ -331,6 +360,7 @@ export default function App() {
             )}
             {activeTab === "newBook" && (
               <NewBookScreen
+                theme={currentTheme}
                 form={bookForm}
                 setForm={setBookForm}
                 onCreateBook={handleCreateBook}
@@ -339,6 +369,9 @@ export default function App() {
             )}
             {activeTab === "profile" && (
               <ProfileScreen
+                theme={currentTheme}
+                themeMode={themeMode}
+                onToggleTheme={toggleTheme}
                 apiUrl={apiUrl}
                 setApiUrl={setApiUrl}
                 user={user}

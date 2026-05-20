@@ -1,8 +1,9 @@
 import React from 'react';
 import { Pressable, Text } from 'react-native';
-import globalStyles from '../../styles/globalStyles';
+import getGlobalStyles from '../../styles/globalStyles';
 
-function PrimaryButton({ children, onPress, disabled, variant = "primary" }) {
+function PrimaryButton({ children, onPress, disabled, variant = "primary", theme }) {
+  const globalStyles = getGlobalStyles(theme);
   return (
     <Pressable
       onPress={onPress}

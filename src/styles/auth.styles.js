@@ -1,9 +1,10 @@
 import { StyleSheet } from 'react-native';
+import { darkTheme } from './colors';
 
-const authStyles = StyleSheet.create({
+const getAuthStyles = (theme = darkTheme) => StyleSheet.create({
   authContainer: {
     flex: 1,
-    backgroundColor: "#0b1221"
+    backgroundColor: theme.background
   },
   authContent: {
     flexGrow: 1,
@@ -14,8 +15,8 @@ const authStyles = StyleSheet.create({
     width: "100%",
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: "#1e2f4c",
-    backgroundColor: "#121e31",
+    borderColor: theme.border,
+    backgroundColor: theme.surface,
     padding: 24,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 10 },
@@ -30,36 +31,15 @@ const authStyles = StyleSheet.create({
     gap: 15,
     marginBottom: 20
   },
-  brandMark: {
-    width: 60,
-    height: 60,
-    borderRadius: 15,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#2b5292",
-    borderWidth: 2,
-    borderColor: "#1a365d",
-    shadowColor: "#2b5292",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  brandInitial: {
-    color: "#ffffff",
-    fontSize: 30,
-    fontWeight: "800",
-    letterSpacing: 1,
-  },
   authTitle: {
-    color: "#ffffff",
+    color: theme.text,
     fontSize: 34,
     fontWeight: "700",
     textAlign: "center",
     letterSpacing: -0.5,
   },
   authSubtitle: {
-    color: "#a0aec0",
+    color: theme.subtext,
     fontSize: 17,
     lineHeight: 24,
     marginBottom: 30,
@@ -67,9 +47,9 @@ const authStyles = StyleSheet.create({
   },
   segmented: {
     flexDirection: "row",
-    backgroundColor: "#060b14",
+    backgroundColor: theme.background,
     borderWidth: 1,
-    borderColor: "#1e2f4c",
+    borderColor: theme.border,
     borderRadius: 16,
     padding: 6,
     marginBottom: 24
@@ -82,7 +62,7 @@ const authStyles = StyleSheet.create({
     borderRadius: 10
   },
   segmentActive: {
-    backgroundColor: "#2b5292",
+    backgroundColor: theme.primary,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.3,
@@ -90,7 +70,7 @@ const authStyles = StyleSheet.create({
     elevation: 5,
   },
   segmentText: {
-    color: "#64748b",
+    color: theme.subtext,
     fontWeight: "600",
     letterSpacing: 0.5
   },
@@ -101,10 +81,10 @@ const authStyles = StyleSheet.create({
   profilePhotoPicker: {
     minHeight: 84,
     borderWidth: 1.5,
-    borderColor: "#2b5292",
+    borderColor: theme.primary,
     borderStyle: "dashed",
     borderRadius: 16,
-    backgroundColor: "rgba(43, 82, 146, 0.05)",
+    backgroundColor: theme.background,
     flexDirection: "row",
     alignItems: "center",
     gap: 16,
@@ -115,7 +95,7 @@ const authStyles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: "#121e31",
+    backgroundColor: theme.surface,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
@@ -128,9 +108,9 @@ const authStyles = StyleSheet.create({
     borderRadius: 28,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#2b5292",
+    backgroundColor: theme.primary,
     borderWidth: 2,
-    borderColor: "#1a365d"
+    borderColor: theme.border
   },
   profilePhotoInitial: {
     color: "#ffffff",
@@ -141,13 +121,13 @@ const authStyles = StyleSheet.create({
     flex: 1
   },
   profilePhotoTitle: {
-    color: "#ffffff",
+    color: theme.text,
     fontSize: 16,
     fontWeight: "800",
     marginBottom: 4
   },
   profilePhotoDescription: {
-    color: "#94a3b8",
+    color: theme.subtext,
     fontSize: 13,
     lineHeight: 18
   },
@@ -155,15 +135,15 @@ const authStyles = StyleSheet.create({
     marginTop: 24,
     padding: 14,
     borderWidth: 1,
-    borderColor: "#1e2f4c",
+    borderColor: theme.border,
     borderRadius: 8,
-    backgroundColor: "#0b1221"
+    backgroundColor: theme.background
   },
   apiTitle: {
-    color: "#a0aec0",
+    color: theme.subtext,
     fontWeight: "800",
     marginBottom: 10
   },
 });
 
-export default authStyles;
+export default getAuthStyles;

@@ -2,12 +2,15 @@ import React from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import * as DocumentPicker from "expo-document-picker";
-import globalStyles from "../styles/globalStyles";
-import newBookStyles from "../styles/newBook.styles";
+import getGlobalStyles from "../styles/globalStyles";
+import getNewBookStyles from "../styles/newBook.styles";
 import Field from "../components/common/Field";
 import PrimaryButton from "../components/common/PrimaryButton";
 
-function NewBookScreen({ form, setForm, onCreateBook, loading }) {
+function NewBookScreen({ form, setForm, onCreateBook, loading, theme }) {
+  const globalStyles = getGlobalStyles(theme);
+  const newBookStyles = getNewBookStyles(theme);
+
   async function pickCover() {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -35,11 +38,13 @@ function NewBookScreen({ form, setForm, onCreateBook, loading }) {
       <Text style={newBookStyles.eyebrow}>Cadastro</Text>
       <Text style={newBookStyles.title}>Novo livro</Text>
       <Field
+        theme={theme}
         label="Nome"
         value={form.name}
         onChangeText={(value) => setForm((current) => ({ ...current, name: value }))}
       />
       <Field
+        theme={theme}
         label="Descricao"
         value={form.description}
         onChangeText={(value) => setForm((current) => ({ ...current, description: value }))}
@@ -57,7 +62,7 @@ function NewBookScreen({ form, setForm, onCreateBook, loading }) {
           </Text>
         </Pressable>
       </View>
-      <PrimaryButton onPress={onCreateBook} disabled={loading}>
+      <PrimaryButton theme={theme} onPress={onCreateBook} disabled={loading}>
         {loading ? "Salvando..." : "Salvar livro"}
       </PrimaryButton>
     </ScrollView>

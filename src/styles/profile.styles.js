@@ -1,15 +1,16 @@
 import { StyleSheet } from 'react-native';
+import { darkTheme } from './colors';
 
-const profileStyles = StyleSheet.create({
+const getProfileStyles = (theme = darkTheme) => StyleSheet.create({
   eyebrow: {
-    color: "#2ecc71",
+    color: theme.accent,
     fontSize: 13,
     fontWeight: "800",
     textTransform: "uppercase",
     letterSpacing: 1.5
   },
   title: {
-    color: "#ffffff",
+    color: theme.text,
     fontSize: 32,
     fontWeight: "800",
     marginTop: 4,
@@ -19,26 +20,42 @@ const profileStyles = StyleSheet.create({
   profileBox: {
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: "#1e2f4c",
-    backgroundColor: "#121e31",
+    borderColor: theme.border,
+    backgroundColor: theme.surface,
     padding: 14,
     marginBottom: 18
   },
   profileLabel: {
-    color: "#a0aec0",
+    color: theme.subtext,
     fontWeight: "700",
     marginBottom: 4
   },
   profileValue: {
-    color: "#ffffff",
+    color: theme.text,
     fontSize: 16,
     fontWeight: "800"
   },
   divider: {
     height: 1,
-    backgroundColor: "#1e2f4c",
+    backgroundColor: theme.border,
     marginVertical: 22
   },
+  themeContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: theme.surface,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: theme.border,
+    marginBottom: 18
+  },
+  themeLabel: {
+    color: theme.text,
+    fontSize: 16,
+    fontWeight: "700"
+  }
 });
 
-export default profileStyles;
+export default getProfileStyles;

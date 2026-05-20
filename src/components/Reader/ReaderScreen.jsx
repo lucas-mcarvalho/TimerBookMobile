@@ -1,16 +1,20 @@
 import React, { useState, useRef } from 'react';
 import { SafeAreaView, StatusBar, View, ActivityIndicator, Text } from 'react-native';
 import { WebView } from "react-native-webview";
-import globalStyles from '../../styles/globalStyles';
+import getGlobalStyles from '../../styles/globalStyles';
 import { getBookTitle } from '../../utils/helpers';
 
-function ReaderScreen({ session, onClose }) {
+function ReaderScreen({ session, onClose, theme }) {
   const webviewRef = useRef(null);
   const [webLoading, setWebLoading] = useState(true);
+  const globalStyles = getGlobalStyles(theme);
 
+  // This runs BEFORE the page JS executes — so the token is
+  // already in localStorage when the web app checks auth on mount
   const injectedJS = `
   localStorage.setItem("token", ${JSON.stringify(session.token)});
   localStorage.setItem("refreshToken", ${JSON.stringify(session.token)});
+  localStorage.setItem("timerbook-theme", ${JSON.stringify(session.themeMode)});
   true;
 `;
   const handleMessage = (event) => {
@@ -23,11 +27,11 @@ function ReaderScreen({ session, onClose }) {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#0b1221" }}>
-      <StatusBar barStyle="light-content" />
+    <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }}>
+      <StatusBar barStyle={session.themeMode === "light" ? "dark-content" : "light-content"} />
       {webLoading && (
         <View style={globalStyles.readerLoading}>
-          <ActivityIndicator size="large" color="#2ecc71" />
+          <ActivityIndicator size="large" color={theme.accent} />
           <Text style={globalStyles.readerLoadingText}>
             Carregando {getBookTitle(session.book)}…
           </Text>

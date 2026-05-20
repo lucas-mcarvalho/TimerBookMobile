@@ -1,12 +1,13 @@
 import { StyleSheet } from 'react-native';
+import { darkTheme } from './colors';
 
-const libraryStyles = StyleSheet.create({
+const getLibraryStyles = (theme = darkTheme) => StyleSheet.create({
   sectionHeader: {
     marginTop: 24,
     marginBottom: 12
   },
   title: {
-    color: "#ffffff",
+    color: theme.text,
     fontSize: 32,
     fontWeight: "800",
     marginTop: 4,
@@ -14,7 +15,7 @@ const libraryStyles = StyleSheet.create({
     letterSpacing: -0.5
   },
   eyebrow: {
-    color: "#2ecc71",
+    color: theme.accent,
     fontSize: 13,
     fontWeight: "800",
     textTransform: "uppercase",
@@ -23,9 +24,9 @@ const libraryStyles = StyleSheet.create({
   bookCard: {
     flexDirection: "row",
     gap: 14,
-    backgroundColor: "#121e31",
+    backgroundColor: theme.surface,
     borderWidth: 1,
-    borderColor: "#1e2f4c",
+    borderColor: theme.border,
     borderRadius: 16,
     padding: 12,
     marginBottom: 12,
@@ -39,7 +40,7 @@ const libraryStyles = StyleSheet.create({
     width: 80,
     height: 115,
     borderRadius: 12,
-    backgroundColor: "#0b1221",
+    backgroundColor: theme.background,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
@@ -51,7 +52,7 @@ const libraryStyles = StyleSheet.create({
     borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#2b5292"
+    backgroundColor: theme.primary
   },
   coverFallbackText: {
     color: "#ffffff",
@@ -62,19 +63,19 @@ const libraryStyles = StyleSheet.create({
     flex: 1
   },
   bookTitle: {
-    color: "#ffffff",
+    color: theme.text,
     fontSize: 17,
     fontWeight: "800"
   },
   bookDescription: {
-    color: "#a0aec0",
+    color: theme.subtext,
     lineHeight: 20,
     marginTop: 5
   },
   progressBadge: {
     alignSelf: "flex-start",
-    color: "#2ecc71",
-    backgroundColor: "rgba(46, 204, 113, 0.1)",
+    color: theme.accent,
+    backgroundColor: theme.accent + "1A", // 10% opacity
     borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 5,
@@ -92,7 +93,7 @@ const libraryStyles = StyleSheet.create({
     borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#2ecc71",
+    backgroundColor: theme.accent,
     paddingHorizontal: 16
   },
   smallActionText: {
@@ -104,13 +105,13 @@ const libraryStyles = StyleSheet.create({
     borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(255, 71, 87, 0.12)",
+    backgroundColor: theme.danger + "1F", // 12% opacity
     paddingHorizontal: 16
   },
   smallDangerText: {
-    color: "#ff4757",
+    color: theme.danger,
     fontWeight: "800"
   },
 });
 
-export default libraryStyles;
+export default getLibraryStyles;

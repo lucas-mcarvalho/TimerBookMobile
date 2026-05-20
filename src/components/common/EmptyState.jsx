@@ -1,8 +1,9 @@
 import React from 'react';
 import { View, Text } from 'react-native';
-import globalStyles from '../../styles/globalStyles';
+import getGlobalStyles from '../../styles/globalStyles';
 
-function EmptyState({ title, description }) {
+function EmptyState({ title, description, theme }) {
+  const globalStyles = getGlobalStyles(theme);
   return (
     <View style={globalStyles.emptyState}>
       <Text style={globalStyles.emptyTitle}>{title}</Text>

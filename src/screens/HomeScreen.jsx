@@ -1,19 +1,21 @@
 import React from "react";
 import { Image, RefreshControl, ScrollView, Text, View } from "react-native";
-import globalStyles from "../styles/globalStyles";
-import homeStyles from "../styles/home.styles";
+import getGlobalStyles from "../styles/globalStyles";
+import getHomeStyles from "../styles/home.styles";
 import StatCard from "../components/common/StatCard";
 import EmptyState from "../components/common/EmptyState";
 import { formatDuration } from "../utils/formatters";
 import { getBookTitle, getUserPhoto } from "../utils/helpers";
 
-function HomeScreen({ apiUrl, user, stats, inProgress, onRefresh, refreshing }) {
+function HomeScreen({ apiUrl, user, stats, inProgress, onRefresh, refreshing, theme }) {
+  const globalStyles = getGlobalStyles(theme);
+  const homeStyles = getHomeStyles(theme);
   const userPhoto = getUserPhoto(user, apiUrl);
 
   return (
     <ScrollView
       contentContainerStyle={globalStyles.screenContent}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.accent} />}
     >
       <View style={{ alignItems: "center", marginBottom: 30 }}>
         <View style={globalStyles.profileImageContainer}>
@@ -21,7 +23,7 @@ function HomeScreen({ apiUrl, user, stats, inProgress, onRefresh, refreshing }) 
             <Image source={{ uri: userPhoto }} style={globalStyles.profileImage} />
           ) : (
             <View style={globalStyles.profileImageDefault}>
-              <Text style={{ fontSize: 40, color: "#a0aec0" }}>
+              <Text style={{ fontSize: 40, color: theme.subtext }}>
                 {(user?.username || "U").slice(0, 1).toUpperCase()}
               </Text>
             </View>
@@ -34,10 +36,10 @@ function HomeScreen({ apiUrl, user, stats, inProgress, onRefresh, refreshing }) 
       </View>
  
       <View style={homeStyles.statsGrid}>
-        <StatCard label="Paginas lidas" value={stats?.pagesRead ?? 0} />
-        <StatCard label="Tempo total" value={formatDuration(stats?.totalSeconds)} />
-        <StatCard label="Sessoes" value={stats?.sessionsCount ?? 0} />
-        <StatCard label="Sequencia" value={`${stats?.currentStreakDays ?? 0} dias`} />
+        <StatCard theme={theme} label="Paginas lidas" value={stats?.pagesRead ?? 0} />
+        <StatCard theme={theme} label="Tempo total" value={formatDuration(stats?.totalSeconds)} />
+        <StatCard theme={theme} label="Sessoes" value={stats?.sessionsCount ?? 0} />
+        <StatCard theme={theme} label="Sequencia" value={`${stats?.currentStreakDays ?? 0} dias`} />
       </View>
  
       <View style={homeStyles.sectionHeader}>
@@ -46,6 +48,7 @@ function HomeScreen({ apiUrl, user, stats, inProgress, onRefresh, refreshing }) 
  
       {inProgress.length === 0 ? (
         <EmptyState
+          theme={theme}
           title="Nada em andamento"
           description="Comece uma leitura pela biblioteca para acompanhar seu progresso."
         />
