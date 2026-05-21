@@ -26,6 +26,12 @@ import ProfileScreen from "./src/screens/ProfileScreen";
 import ReaderScreen from "./src/components/Reader/ReaderScreen";
 import Estatisticas from "./src/components/estatisticas";
 
+// --- Icons ---
+import HomeIcon from "./src/assets/HomeIcon.svg";
+import BookIcon from "./src/assets/BookIcon.svg";
+import AddIcon from "./src/assets/AddIncon.svg";
+import ProfileIcon from "./src/assets/ProfileIcon.svg";
+
 // --- API & Storage ---
 import {
   clearSessionStorage,
@@ -387,19 +393,32 @@ export default function App() {
       <View style={globalStyles.tabBar}>
         {tabs.map((tab) => {
           const active = tab.key === activeTab;
+
+          let Icon;
+          switch (tab.key) {
+            case "home": Icon = HomeIcon; break;
+            case "library": Icon = BookIcon; break;
+            case "newBook": Icon = AddIcon; break;
+            case "profile": Icon = ProfileIcon; break;
+            default: Icon = HomeIcon;
+          }
+
           return (
             <Pressable
               key={tab.key}
               onPress={() => handleTabPress(tab.key)} 
               style={[globalStyles.tab, active && globalStyles.activeTab]}
             >
-              <Text style={[globalStyles.tabText, active && globalStyles.activeTabText]}>
-                {tab.label}
-              </Text>
+              <Icon 
+                width={24} 
+                height={24} 
+                color={active ? "#ffffff" : currentTheme.subtext} 
+              />
             </Pressable>
           );
         })}
       </View>
+
     </SafeAreaView>
   );
 }

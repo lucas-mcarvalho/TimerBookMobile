@@ -1,9 +1,13 @@
-import React, { useMemo } from "react";
-import { FlatList, Image, Pressable, RefreshControl, Text, View } from "react-native";
+import React, { useMemo, useState } from "react";
+import { FlatList, Image, Pressable, RefreshControl, Text, View, LayoutAnimation } from "react-native";
 import getGlobalStyles from "../styles/globalStyles";
 import getLibraryStyles from "../styles/library.styles";
 import EmptyState from "../components/common/EmptyState";
 import { getBookCover, getBookTitle, getReadingBookId } from "../utils/helpers";
+
+// Icons
+import PencilIcon from "../assets/PencilIcon.svg";
+import TrashIcon from "../assets/TrashIcon.svg";
 
 function LibraryScreen({
   apiUrl,
@@ -16,8 +20,14 @@ function LibraryScreen({
   onViewStats,
   theme
 }) {
+  const [isEditing, setIsEditing] = useState(false);
   const globalStyles = getGlobalStyles(theme);
   const libraryStyles = getLibraryStyles(theme);
+
+  const toggleEdit = () => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setIsEditing(!isEditing);
+  };
 
   const inProgressByBookId = useMemo(() => {
     const map = new Map();
@@ -36,9 +46,17 @@ function LibraryScreen({
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.accent} />}
       ListHeaderComponent={
         <View style={libraryStyles.sectionHeader}>
-          <View>
-            <Text style={libraryStyles.eyebrow}>Biblioteca</Text>
-            <Text style={libraryStyles.title}>Meus livros</Text>
+          <View style={libraryStyles.headerRow}>
+            <View>
+              <Text style={libraryStyles.eyebrow}>Biblioteca</Text>
+              <Text style={[libraryStyles.title, { marginBottom: 0 }]}>Meus livros</Text>
+            </View>
+            <Pressable 
+              onPress={toggleEdit} 
+              style={[libraryStyles.editButton, isEditing && libraryStyles.editButtonActive]}
+            >
+              <PencilIcon width={20} height={20} color={isEditing ? "#ffffff" : theme.text} />
+            </Pressable>
           </View>
         </View>
       }
@@ -85,9 +103,14 @@ function LibraryScreen({
                   </Pressable>
                 )}
 
-                <Pressable onPress={() => onDeleteBook(item)} style={libraryStyles.smallDangerAction}>
-                  <Text style={libraryStyles.smallDangerText}>Excluir</Text>
-                </Pressable>
+                {isEditing && (
+                  <Pressable 
+                    onPress={() => onDeleteBook(item)} 
+                    style={[libraryStyles.smallDangerAction, { width: 44, paddingHorizontal: 0 }]}
+                  >
+                    <TrashIcon width={20} height={20} color={theme.danger} />
+                  </Pressable>
+                )}
               </View>
             </View>
           </View>

@@ -179,7 +179,7 @@ const getGlobalStyles = (theme = darkTheme) => StyleSheet.create({
     right: 14,
     bottom: 14,
     minHeight: 64,
-    borderRadius: 8,
+    borderRadius: 32,
     flexDirection: "row",
     backgroundColor: theme.tabBarBg,
     borderWidth: 1,
@@ -195,7 +195,7 @@ const getGlobalStyles = (theme = darkTheme) => StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 6
+    borderRadius: 26
   },
   activeTab: {
     backgroundColor: theme.primary

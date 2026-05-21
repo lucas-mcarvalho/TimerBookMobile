@@ -21,6 +21,31 @@ const getLibraryStyles = (theme = darkTheme) => StyleSheet.create({
     textTransform: "uppercase",
     letterSpacing: 1.5
   },
+  headerRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-end",
+    marginBottom: 24,
+  },
+  editButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: theme.surface,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: theme.border,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  editButtonActive: {
+    backgroundColor: theme.primary,
+    borderColor: theme.primary,
+  },
   bookCard: {
     flexDirection: "row",
     gap: 14,
