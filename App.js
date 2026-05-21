@@ -36,6 +36,7 @@ import ProfileIcon from "./src/assets/ProfileIcon.svg";
 import {
   clearSessionStorage,
   getStoredApiUrl,
+  getStoredRefreshToken,
   getStoredTheme,
   getStoredToken,
   saveApiUrl,
@@ -70,6 +71,26 @@ import {
 // --- Setup ---
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+
+function getReaderWebUrl(apiUrl) {
+  const envUrl = process.env.EXPO_PUBLIC_WEB_URL;
+  if (envUrl) return envUrl.replace(/\/+$/, "");
+
+  const match = String(apiUrl || "").trim().match(/^(https?:\/\/[^/:]+)(?::\d+)?/i);
+  if (!match) return WEB_URL;
+
+  return `${match[1]}:${process.env.EXPO_PUBLIC_WEB_PORT || "5173"}`;
+}
+
+function getIaApiUrl(apiUrl) {
+  const envUrl = process.env.EXPO_PUBLIC_IA_URL;
+  if (envUrl) return envUrl.replace(/\/+$/, "");
+
+  const match = String(apiUrl || "").trim().match(/^(https?:\/\/[^/:]+)/i);
+  if (!match) return "";
+
+  return `${match[1]}:${process.env.EXPO_PUBLIC_IA_PORT || "8000"}`;
 }
  
 export default function App() {
@@ -222,15 +243,23 @@ export default function App() {
       }
  
       const token = await getStoredToken();
-      console.log("token", token);
-      const webUrl = `${WEB_URL}/leitor?bookId=${book.id}&sessionId=${currentSession.id}&page=${startPage}&token=${token}`;
+      const refreshToken = await getStoredRefreshToken();
+      const readerBaseUrl = getReaderWebUrl(apiUrl);
+      const iaApiUrl = getIaApiUrl(apiUrl);
+      const webUrl = `${readerBaseUrl}/leitor?bookId=${encodeURIComponent(book.id)}&sessionId=${encodeURIComponent(currentSession.id)}&page=${encodeURIComponent(startPage)}&token=${encodeURIComponent(token || "")}`;
  
       setReaderSession({
-        book,
+        book: {
+          ...book,
+          title: book.title || book.name
+        },
         sessionId: currentSession.id,
         initialPage: startPage,
         webUrl,
-        token
+        token,
+        refreshToken,
+        apiUrl: apiUrl.replace(/\/+$/, ""),
+        iaApiUrl
       });
     } catch (error) {
       Alert.alert("Leitura", getErrorMessage(error));
@@ -238,16 +267,18 @@ export default function App() {
   }
  
   // Called when web app posts SESSION_END
-  async function handleCloseReader(finalPage) {
+  async function handleCloseReader(finalPage, alreadyFinished = false) {
     if (!readerSession?.sessionId) {
       setReaderSession(null);
       return;
     }
     try {
-      await finishReadingSession(
-        readerSession.sessionId,
-        finalPage ?? readerSession.initialPage
-      );
+      if (!alreadyFinished) {
+        await finishReadingSession(
+          readerSession.sessionId,
+          finalPage ?? readerSession.initialPage
+        );
+      }
     } catch (err) {
       console.error("Erro ao encerrar sessão:", err.message);
     } finally {
