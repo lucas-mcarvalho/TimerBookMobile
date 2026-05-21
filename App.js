@@ -378,6 +378,7 @@ export default function App() {
                 theme={currentTheme}
                 themeMode={themeMode}
                 onToggleTheme={toggleTheme}
+                onRefreshUser={loadAppData}
                 apiUrl={apiUrl}
                 setApiUrl={setApiUrl}
                 user={user}

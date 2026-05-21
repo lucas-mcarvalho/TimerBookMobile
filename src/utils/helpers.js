@@ -24,9 +24,16 @@ export function getReadingBookId(reading) {
 }
 
 export function getUserPhoto(user, apiUrl) {
-  const photo = user?.photoUrl || user?.photoPath || user?.photo;
+  const photo = user?.photoUrl || user?.photoPath || user?.photo || user?.photopath;
   if (!photo) return null;
   if (/^https?:\/\//i.test(photo)) return photo;
   if (typeof photo === 'object' && photo.uri) return photo.uri;
-  return `${apiUrl.replace(/\/+$/, "")}${photo.startsWith("/") ? photo : `/${photo}`}`;
+  
+  const baseUrl = apiUrl.replace(/\/+$/, "");
+  const cleanPath = photo.startsWith("/") ? photo : `/${photo}`;
+  
+  // Adiciona um parâmetro de tempo para "enganar" o cache do celular
+  // e forçar a atualização da imagem sempre que os dados do usuário mudarem.
+  const cacheBuster = `?t=${new Date().getTime()}`;
+  return `${baseUrl}${cleanPath}${cacheBuster}`;
 }
