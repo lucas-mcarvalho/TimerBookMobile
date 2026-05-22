@@ -55,6 +55,36 @@ export async function updateReadingGoal(dailyReadingGoalMinutes) {
   });
 }
 
+export async function updateProfile(userId, { username, email }, photo, removePhoto = false) {
+  const formData = new FormData();
+  
+  if (username) {
+    formData.append("username", username);
+  }
+  
+  if (email) {
+    formData.append("email", email);
+  }
+
+  if (removePhoto) {
+    formData.append("removePhoto", "true");
+  }
+
+  if (photo) {
+    const photoPart = createFilePart(photo, "profile.jpg", "image/jpeg");
+    if (photoPart) {
+      formData.append("photo", photoPart);
+    }
+  }
+
+  // Tentar usar o ID na URL ou /me dependendo da convenção do projeto
+  return apiFetch(`/user/${userId}`, {
+    method: "PUT",
+    multipart: true,
+    body: formData
+  });
+}
+
 export async function getBooksByUserId(userId) {
   return apiFetch(`/book/user/${userId}`);
 }
