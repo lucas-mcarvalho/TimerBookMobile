@@ -380,6 +380,7 @@ export default function App() {
                 inProgress={inProgress}
                 onRefresh={loadAppData}
                 refreshing={refreshing}
+                onNavigateProfile={() => handleTabPress("profile")}
               />
             )}
             {activeTab === "library" && (
