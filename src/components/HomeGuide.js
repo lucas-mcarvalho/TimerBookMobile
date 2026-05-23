@@ -143,11 +143,11 @@ const styles = StyleSheet.create({
   guideButton: {
     position: "absolute",
     right: 20,
-    bottom: 20,
+    top: 20,
     zIndex: 999,
-    paddingVertical: 14,
-    paddingHorizontal: 22,
-    borderRadius: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+    borderRadius: 20,
     backgroundColor: "#2457a6",
     elevation: 8, // Sombra para Android
     shadowColor: "#2457a6", // Sombra para iOS
