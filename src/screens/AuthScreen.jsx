@@ -162,8 +162,9 @@ function AuthScreen({ apiUrl, setApiUrl, onAuthenticated, theme }) {
             onChangeText={setEmail}
             keyboardType="email-address"
             placeholder="voce@email.com"
+            
           />
-          <Field theme={theme} label="Senha" value={password} onChangeText={setPassword} secureTextEntry />
+          <Field theme={theme} label="Senha" value={password} onChangeText={setPassword} isPassword={true}/>
           {mode === "register" && (
             <Field
               theme={theme}

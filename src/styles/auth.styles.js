@@ -11,19 +11,23 @@ const getAuthStyles = (theme = darkTheme) => StyleSheet.create({
     justifyContent: "center",
     padding: 24
   },
+  
+  // O "Card" central que imita o .login-form-card da web
   loginFormCard: {
     width: "100%",
-    borderRadius: 20,
+    borderRadius: 20, 
     borderWidth: 1,
     borderColor: theme.border,
     backgroundColor: theme.surface,
-    padding: 24,
-    shadowColor: "#000",
+    padding: 24, 
+    shadowColor: theme.cardShadow || "#000",
     shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.05,
-    shadowRadius: 25,
-    elevation: 10,
+    shadowOpacity: 0.1, 
+    shadowRadius: 15,
+    elevation: 5,
   },
+  
+  // Cabeçalho e Logo
   logoBlock: {
     flexDirection: "row",
     alignItems: "center",
@@ -33,25 +37,27 @@ const getAuthStyles = (theme = darkTheme) => StyleSheet.create({
   },
   authTitle: {
     color: theme.text,
-    fontSize: 34,
+    fontSize: 34, 
     fontWeight: "700",
     textAlign: "center",
     letterSpacing: -0.5,
   },
   authSubtitle: {
     color: theme.subtext,
-    fontSize: 17,
+    fontSize: 17, 
     lineHeight: 24,
     marginBottom: 30,
     textAlign: "center"
   },
+  
+  // Controle Segmentado (Abas Entrar / Cadastrar)
   segmented: {
     flexDirection: "row",
-    backgroundColor: theme.background,
+    backgroundColor: theme.background, 
     borderWidth: 1,
     borderColor: theme.border,
-    borderRadius: 16,
-    padding: 6,
+    borderRadius: 12,
+    padding: 4,
     marginBottom: 24
   },
   segment: {
@@ -59,15 +65,12 @@ const getAuthStyles = (theme = darkTheme) => StyleSheet.create({
     minHeight: 44,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 10
+    borderRadius: 8
   },
   segmentActive: {
-    backgroundColor: theme.primary,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 5,
+    backgroundColor: theme.surface, 
+    borderWidth: 1,
+    borderColor: theme.border,
   },
   segmentText: {
     color: theme.subtext,
@@ -75,13 +78,15 @@ const getAuthStyles = (theme = darkTheme) => StyleSheet.create({
     letterSpacing: 0.5
   },
   segmentTextActive: {
-    color: "#ffffff",
+    color: theme.accent, // Usa o verde (#2ecc71) definido na sua paleta
     fontWeight: "800"
   },
+  
+  // Área da Foto de Perfil
   profilePhotoPicker: {
     minHeight: 84,
     borderWidth: 1.5,
-    borderColor: theme.primary,
+    borderColor: theme.accent, // Borda tracejada em verde igual ao link web
     borderStyle: "dashed",
     borderRadius: 16,
     backgroundColor: theme.background,
@@ -96,11 +101,8 @@ const getAuthStyles = (theme = darkTheme) => StyleSheet.create({
     height: 56,
     borderRadius: 28,
     backgroundColor: theme.surface,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 3,
+    borderWidth: 1,
+    borderColor: theme.border,
   },
   profilePhotoPlaceholder: {
     width: 56,
@@ -108,12 +110,13 @@ const getAuthStyles = (theme = darkTheme) => StyleSheet.create({
     borderRadius: 28,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: theme.primary,
+    backgroundColor: theme.background,
     borderWidth: 2,
-    borderColor: theme.border
+    borderColor: theme.border,
+    borderStyle: "dashed"
   },
   profilePhotoInitial: {
-    color: "#ffffff",
+    color: theme.subtext,
     fontSize: 22,
     fontWeight: "800"
   },
@@ -127,10 +130,13 @@ const getAuthStyles = (theme = darkTheme) => StyleSheet.create({
     marginBottom: 4
   },
   profilePhotoDescription: {
-    color: theme.subtext,
+    color: theme.accent, // Texto verde sublinhado
+    textDecorationLine: 'underline',
     fontSize: 13,
     lineHeight: 18
   },
+  
+  // Configuração da API (Extra do mobile)
   apiBox: {
     marginTop: 24,
     padding: 14,
@@ -143,7 +149,7 @@ const getAuthStyles = (theme = darkTheme) => StyleSheet.create({
     color: theme.subtext,
     fontWeight: "800",
     marginBottom: 10
-  },
+  }
 });
 
 export default getAuthStyles;
