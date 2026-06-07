@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -12,6 +12,7 @@ import {
   View
 } from "react-native";
 import { StatusBar as ExpoStatusBar } from "expo-status-bar";
+import { Audio } from 'expo-av';
 
 // --- Styles ---
 import getGlobalStyles from "./src/styles/globalStyles";
@@ -114,6 +115,32 @@ export default function App() {
 
   // ── Reader state (replaces ReadingSessionPanel) ──
   const [readerSession, setReaderSession] = useState(null);
+  const flipSoundRef = useRef(null);
+
+  useEffect(() => {
+    let mounted = true;
+    async function loadFlipSound() {
+      try {
+        const { sound } = await Audio.Sound.createAsync(
+          require("./src/assets/sounds/slide.mp3")
+        );
+        if (mounted) flipSoundRef.current = sound;
+      } catch (err) {
+        console.warn("Não foi possível carregar o som:", err.message);
+      }
+    }
+    loadFlipSound();
+
+    return () => {
+      mounted = false;
+      if (flipSoundRef.current) {
+        try {
+          flipSoundRef.current.unloadAsync();
+        } catch (e) {}
+        flipSoundRef.current = null;
+      }
+    };
+  }, []);
  
   // ── Boot: restore stored API URL + token + theme ──
   useEffect(() => {
@@ -317,8 +344,23 @@ export default function App() {
   }
 
   // Nova função de mudança de aba animada
-  function handleTabPress(key) {
+  async function handleTabPress(key) {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    try {
+      if (key !== activeTab && flipSoundRef.current) {
+        // replayAsync é suportado em versões recentes do expo-av
+        if (typeof flipSoundRef.current.replayAsync === "function") {
+          await flipSoundRef.current.replayAsync();
+        } else {
+          await flipSoundRef.current.setPositionAsync(0);
+          await flipSoundRef.current.playAsync();
+        }
+      }
+    } catch (e) {
+      // não bloquear a troca de aba por erro no som
+      console.warn("Erro ao tocar som:", e.message);
+    }
+
     setActiveTab(key);
   }
 

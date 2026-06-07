@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
+import { Audio } from 'expo-av';
 import { 
   Modal, 
   View, 
@@ -38,11 +39,76 @@ const guideSteps = [
 const HomeGuide = ({ onNavigateProfile }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [step, setStep] = useState(0);
+  const guideSoundRef = useRef(null);
+  const openSoundRef = useRef(null);
+
+  useEffect(() => {
+    let mounted = true;
+    async function loadGuideSound() {
+      try {
+        const { sound } = await Audio.Sound.createAsync(
+          require("../assets/sounds/guia2.mp3")
+        );
+        if (mounted) guideSoundRef.current = sound;
+      } catch (err) {
+        // fallback para folha.mp3 se guia2 não existir
+        try {
+          const { sound } = await Audio.Sound.createAsync(
+            require("../assets/sounds/slide.mp3")
+          );
+          if (mounted) guideSoundRef.current = sound;
+        } catch (e) {
+          console.warn("Não foi possível carregar som do guia:", e.message);
+        }
+      }
+      // carregar som de abertura do guia (guia.mp3)
+      try {
+        const { sound: openSound } = await Audio.Sound.createAsync(
+          require("../assets/sounds/guia.mp3")
+        );
+        if (mounted) openSoundRef.current = openSound;
+      } catch (e) {
+        // fallback para folha
+        try {
+          const { sound: openSound } = await Audio.Sound.createAsync(
+            require("../assets/sounds/folha.mp3")
+          );
+          if (mounted) openSoundRef.current = openSound;
+        } catch (er) {
+          console.warn("Não foi possível carregar som de abertura do guia:", er.message);
+        }
+      }
+    }
+    loadGuideSound();
+
+    return () => {
+      mounted = false;
+      if (guideSoundRef.current) {
+        try {
+          guideSoundRef.current.unloadAsync();
+        } catch (e) {}
+        guideSoundRef.current = null;
+      }
+    };
+  }, []);
 
   const currentStep = guideSteps[step];
   const progress = ((step + 1) / guideSteps.length) * 100;
 
-  const nextStep = () => {
+  const nextStep = async () => {
+    try {
+      if (guideSoundRef.current) {
+        if (typeof guideSoundRef.current.replayAsync === "function") {
+          await guideSoundRef.current.replayAsync();
+        } else {
+          await guideSoundRef.current.setPositionAsync(0);
+          await guideSoundRef.current.playAsync();
+        }
+      }
+    } catch (e) {
+      console.warn("Erro ao tocar som do guia:", e.message);
+    }
+
     if (step < guideSteps.length - 1) {
       setStep(step + 1);
     } else {
@@ -69,10 +135,26 @@ const HomeGuide = ({ onNavigateProfile }) => {
     }
   };
 
+  const openGuide = async () => {
+    try {
+      if (openSoundRef.current) {
+        if (typeof openSoundRef.current.replayAsync === "function") {
+          await openSoundRef.current.replayAsync();
+        } else {
+          await openSoundRef.current.setPositionAsync(0);
+          await openSoundRef.current.playAsync();
+        }
+      }
+    } catch (e) {
+      console.warn("Erro ao tocar som de abertura do guia:", e.message);
+    }
+    setIsOpen(true);
+  };
+
   return (
     <>
       {/* Botão Flutuante (Guia) */}
-      <TouchableOpacity style={styles.guideButton} onPress={() => setIsOpen(true)}>
+      <TouchableOpacity style={styles.guideButton} onPress={openGuide}>
         <Text style={styles.guideButtonText}>Guia</Text>
       </TouchableOpacity>
 
