@@ -9,7 +9,8 @@ import {
   StatusBar,
   Text,
   UIManager,
-  View
+  View,
+  Linking,
 } from "react-native";
 import { StatusBar as ExpoStatusBar } from "expo-status-bar";
 import { Audio } from 'expo-av';
@@ -24,6 +25,7 @@ import HomeScreen from "./src/screens/HomeScreen";
 import LibraryScreen from "./src/screens/LibraryScreen";
 import NewBookScreen from "./src/screens/NewBookScreen";
 import ProfileScreen from "./src/screens/ProfileScreen";
+import AssinaturaScreen from "./src/screens/AssinaturaScreen";
 import ReaderScreen from "./src/components/Reader/ReaderScreen";
 import Estatisticas from "./src/components/estatisticas";
 
@@ -116,6 +118,7 @@ export default function App() {
   // ── Reader state (replaces ReadingSessionPanel) ──
   const [readerSession, setReaderSession] = useState(null);
   const flipSoundRef = useRef(null);
+  const notificationSoundRef = useRef(null);
 
   useEffect(() => {
     let mounted = true;
@@ -129,15 +132,33 @@ export default function App() {
         console.warn("Não foi possível carregar o som:", err.message);
       }
     }
-    loadFlipSound();
+    async function loadSounds() {
+      try {
+        const flip = await Audio.Sound.createAsync(require("./src/assets/sounds/slide.mp3"));
+        const notif = await Audio.Sound.createAsync(require("./src/assets/sounds/notificacao.mp3"));
+        if (mounted) {
+          flipSoundRef.current = flip.sound;
+          notificationSoundRef.current = notif.sound;
+        } else {
+          try { flip.sound.unloadAsync(); } catch (e) {}
+          try { notif.sound.unloadAsync(); } catch (e) {}
+        }
+      } catch (err) {
+        console.warn("Não foi possível carregar os sons:", err.message);
+      }
+    }
+
+    loadSounds();
 
     return () => {
       mounted = false;
       if (flipSoundRef.current) {
-        try {
-          flipSoundRef.current.unloadAsync();
-        } catch (e) {}
+        try { flipSoundRef.current.unloadAsync(); } catch (e) {}
         flipSoundRef.current = null;
+      }
+      if (notificationSoundRef.current) {
+        try { notificationSoundRef.current.unloadAsync(); } catch (e) {}
+        notificationSoundRef.current = null;
       }
     };
   }, []);
@@ -305,6 +326,19 @@ export default function App() {
           readerSession.sessionId,
           finalPage ?? readerSession.initialPage
         );
+        // Se finishReadingSession marcou o fim, tocar som de notificação (se carregado)
+        try {
+          if (notificationSoundRef.current) {
+            if (typeof notificationSoundRef.current.replayAsync === 'function') {
+              await notificationSoundRef.current.replayAsync();
+            } else {
+              await notificationSoundRef.current.setPositionAsync(0);
+              await notificationSoundRef.current.playAsync();
+            }
+          }
+        } catch (e) {
+          console.warn('Erro ao tocar som de notificação:', e.message);
+        }
       }
     } catch (err) {
       console.error("Erro ao encerrar sessão:", err.message);
@@ -459,6 +493,25 @@ export default function App() {
                 onSaveApiUrl={persistApiUrl}
                 onSaveGoal={handleSaveGoal}
                 onLogout={logout}
+                onNavigateSubscription={() => setActiveTab('subscription')}
+              />
+            )}
+
+            {activeTab === "subscription" && (
+              <AssinaturaScreen
+                theme={currentTheme}
+                subscription={user?.subscription || {}}
+                userInfo={user}
+                onSubscribe={async (planId) => {
+                  // Retorna uma URL de checkout para abrir no web
+                  return `${getReaderWebUrl(apiUrl)}/assinatura/checkout?plan=${encodeURIComponent(planId)}`;
+                }}
+                onManagePortal={() => {
+                  const url = `${getReaderWebUrl(apiUrl)}/assinatura/portal`;
+                  try { Linking.openURL(url); } catch (e) { console.warn('Não foi possível abrir portal:', e); }
+                }}
+                loading={false}
+                onBack={() => setActiveTab('profile')}
               />
             )}
           </>

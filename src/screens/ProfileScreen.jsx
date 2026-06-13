@@ -12,7 +12,8 @@ import { updateProfile } from "../api/timerbook";
 import PencilIcon from "../assets/PencilIcon.svg";
 import TrashIcon from "../assets/TrashIcon.svg";
 
-function ProfileScreen({ apiUrl, setApiUrl, user, onSaveApiUrl, onSaveGoal, onLogout, theme, themeMode, onToggleTheme, onRefreshUser }) {
+// ADICIONEI a prop onNavigateSubscription aqui
+function ProfileScreen({ apiUrl, setApiUrl, user, onSaveApiUrl, onSaveGoal, onLogout, theme, themeMode, onToggleTheme, onRefreshUser, onNavigateSubscription }) {
   const [username, setUsername] = useState(user?.username || "");
   const [goal, setGoal] = useState(String(user?.dailyReadingGoalMinutes ?? 20));
   const [uploading, setUploading] = useState(false);
@@ -41,7 +42,6 @@ function ProfileScreen({ apiUrl, setApiUrl, user, onSaveApiUrl, onSaveGoal, onLo
 
       if (!result.canceled && result.assets?.[0]) {
         setUploading(true);
-        // Seguindo a lógica do EditProfileModal.jsx
         await updateProfile(user.id, { username: user.username, email: user.email }, result.assets[0]);
         if (onRefreshUser) await onRefreshUser();
         Alert.alert("Sucesso", "Foto de perfil atualizada!");
@@ -87,7 +87,6 @@ function ProfileScreen({ apiUrl, setApiUrl, user, onSaveApiUrl, onSaveGoal, onLo
 
     setSavingProfile(true);
     try {
-      // No EditProfileModal ele envia o email também
       await updateProfile(user.id, { username: username.trim(), email: user.email }, null);
       if (onRefreshUser) await onRefreshUser();
       Alert.alert("Sucesso", "Perfil atualizado com sucesso!");
@@ -176,6 +175,17 @@ function ProfileScreen({ apiUrl, setApiUrl, user, onSaveApiUrl, onSaveGoal, onLo
         />
         <PrimaryButton theme={theme} onPress={() => onSaveGoal(goal)} variant="secondary">
           Atualizar Meta
+        </PrimaryButton>
+      </View>
+
+      {/* BLOCO: ASSINATURA */}
+      <View style={profileStyles.profileBox}>
+        <Text style={profileStyles.profileLabel}>Assinatura</Text>
+        <Text style={[profileStyles.profileValue, { marginBottom: 15, opacity: 0.7 }]}>
+          Gerencie seu plano atual e descubra os benefícios Premium.
+        </Text>
+        <PrimaryButton theme={theme} onPress={onNavigateSubscription} variant="primary">
+          Plano de Assinatura
         </PrimaryButton>
       </View>
 
