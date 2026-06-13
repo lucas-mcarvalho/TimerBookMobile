@@ -157,13 +157,6 @@ function AssinaturaScreen({
                   </View>
                 )}
 
-                {/* Selected indicator */}
-                {isSelected && (
-                  <View style={styles.selectedBadge}>
-                    <Text style={styles.selectedBadgeText}>✓</Text>
-                  </View>
-                )}
-
                 <Text style={styles.planName}>{plan.name}</Text>
                 <Text style={styles.planDescription}>{plan.description}</Text>
 
