@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Image, ScrollView, Text, View, Switch, Pressable, Alert, ActivityIndicator } from "react-native";
+import { Image, ScrollView, Text, View, Switch, Pressable, Alert, ActivityIndicator, Modal } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import getGlobalStyles from "../styles/globalStyles";
 import getProfileStyles from "../styles/profile.styles";
@@ -12,9 +12,10 @@ import { updateProfile } from "../api/timerbook";
 import PencilIcon from "../assets/PencilIcon.svg";
 import TrashIcon from "../assets/TrashIcon.svg";
 
-function ProfileScreen({ apiUrl, setApiUrl, user, onSaveApiUrl, onSaveGoal, onLogout, theme, themeMode, onToggleTheme, onRefreshUser }) {
+function ProfileScreen({ apiUrl, setApiUrl, user, onSaveApiUrl, onSaveGoal, onLogout, theme, themeMode, onToggleTheme, onRefreshUser, onNavigateSubscription }) {
   const [username, setUsername] = useState(user?.username || "");
-  const [goal, setGoal] = useState(String(user?.dailyReadingGoalMinutes ?? 20));
+  const [goal, setGoal] = useState(String(user?.dailyReadingGoalMinutes ?? 20)); // Restaurei o estado do goal
+  const [isGoalModalOpen, setIsGoalModalOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
   
@@ -22,7 +23,7 @@ function ProfileScreen({ apiUrl, setApiUrl, user, onSaveApiUrl, onSaveGoal, onLo
   
   const globalStyles = getGlobalStyles(theme);
   const profileStyles = getProfileStyles(theme);
- 
+
   useEffect(() => {
     if (user) {
       setUsername(user.username || "");
@@ -41,7 +42,6 @@ function ProfileScreen({ apiUrl, setApiUrl, user, onSaveApiUrl, onSaveGoal, onLo
 
       if (!result.canceled && result.assets?.[0]) {
         setUploading(true);
-        // Seguindo a lógica do EditProfileModal.jsx
         await updateProfile(user.id, { username: user.username, email: user.email }, result.assets[0]);
         if (onRefreshUser) await onRefreshUser();
         Alert.alert("Sucesso", "Foto de perfil atualizada!");
@@ -87,7 +87,6 @@ function ProfileScreen({ apiUrl, setApiUrl, user, onSaveApiUrl, onSaveGoal, onLo
 
     setSavingProfile(true);
     try {
-      // No EditProfileModal ele envia o email também
       await updateProfile(user.id, { username: username.trim(), email: user.email }, null);
       if (onRefreshUser) await onRefreshUser();
       Alert.alert("Sucesso", "Perfil atualizado com sucesso!");
@@ -165,17 +164,25 @@ function ProfileScreen({ apiUrl, setApiUrl, user, onSaveApiUrl, onSaveGoal, onLo
         />
       </View>
 
+      {/* META DE LEITURA (Botão que abre o Modal) */}
       <View style={profileStyles.profileBox}>
         <Text style={profileStyles.profileLabel}>Meta de Leitura</Text>
-        <Field
-          theme={theme}
-          label="Minutos diários"
-          value={goal}
-          onChangeText={setGoal}
-          keyboardType="numeric"
-        />
-        <PrimaryButton theme={theme} onPress={() => onSaveGoal(goal)} variant="secondary">
-          Atualizar Meta
+        <Text style={[profileStyles.profileValue, { marginBottom: 15 }]}>
+          {goal} minutos por dia
+        </Text>
+        <PrimaryButton theme={theme} onPress={() => setIsGoalModalOpen(true)} variant="secondary">
+          Alterar Meta de Leitura
+        </PrimaryButton>
+      </View>
+
+      {/* BLOCO: ASSINATURA */}
+      <View style={profileStyles.profileBox}>
+        <Text style={profileStyles.profileLabel}>Assinatura</Text>
+        <Text style={[profileStyles.profileValue, { marginBottom: 15, opacity: 0.7 }]}>
+          Gerencie seu plano atual e descubra os benefícios Premium.
+        </Text>
+        <PrimaryButton theme={theme} onPress={onNavigateSubscription} variant="primary">
+          Plano de Assinatura
         </PrimaryButton>
       </View>
 
@@ -198,6 +205,66 @@ function ProfileScreen({ apiUrl, setApiUrl, user, onSaveApiUrl, onSaveGoal, onLo
       <PrimaryButton theme={theme} onPress={onLogout} variant="danger">
         Sair da Conta
       </PrimaryButton>
+
+      {/* MODAL DE META DE LEITURA */}
+      <Modal
+        visible={isGoalModalOpen}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setIsGoalModalOpen(false)}
+      >
+        <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "center", alignItems: "center", padding: 20 }}>
+          <View style={{ backgroundColor: themeMode === "dark" ? "#1e2f4c" : "#ffffff", padding: 25, borderRadius: 12, width: "100%" }}>
+            
+            <Text style={{ fontSize: 20, fontWeight: "bold", color: theme.text, marginBottom: 8 }}>
+              Meta diária de leitura
+            </Text>
+            <Text style={{ color: theme.subtext, marginBottom: 20 }}>
+              Escolha quantos minutos você quer ler por dia.
+            </Text>
+
+            {/* Botões de 10, 20 e 30 */}
+            <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 25 }}>
+              {[10, 20, 30].map((minutes) => (
+                <Pressable
+                  key={minutes}
+                  onPress={() => setGoal(String(minutes))}
+                  style={{
+                    flex: 1,
+                    marginHorizontal: 5,
+                    paddingVertical: 15,
+                    borderWidth: 2,
+                    borderColor: goal === String(minutes) ? theme.accent : (themeMode === "dark" ? "#334155" : "#e2e8f0"),
+                    borderRadius: 8,
+                    alignItems: "center",
+                    backgroundColor: goal === String(minutes) ? (themeMode === "dark" ? "rgba(29, 158, 117, 0.2)" : "#e6f6f0") : "transparent"
+                  }}
+                >
+                  <Text style={{ fontSize: 20, fontWeight: "bold", color: theme.text }}>{minutes}</Text>
+                  <Text style={{ fontSize: 12, color: theme.subtext }}>min/dia</Text>
+                </Pressable>
+              ))}
+            </View>
+
+            {/* Ações do Modal */}
+            <View style={{ flexDirection: "row", justifyContent: "flex-end", gap: 15 }}>
+              <Pressable onPress={() => setIsGoalModalOpen(false)} style={{ padding: 10 }}>
+                <Text style={{ color: theme.subtext, fontWeight: "600" }}>Cancelar</Text>
+              </Pressable>
+              
+              <PrimaryButton 
+                theme={theme} 
+                onPress={() => {
+                  onSaveGoal(goal);
+                  setIsGoalModalOpen(false);
+                }}
+              >
+                Salvar Meta
+              </PrimaryButton>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
