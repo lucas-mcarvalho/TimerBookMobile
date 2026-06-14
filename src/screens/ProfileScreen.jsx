@@ -12,7 +12,7 @@ import { updateProfile } from "../api/timerbook";
 import PencilIcon from "../assets/PencilIcon.svg";
 import TrashIcon from "../assets/TrashIcon.svg";
 
-function ProfileScreen({ apiUrl, setApiUrl, user, onSaveApiUrl, onSaveGoal, onLogout, theme, themeMode, onToggleTheme, onRefreshUser, onNavigateSubscription }) {
+function ProfileScreen({ apiUrl, user, onSaveGoal, onLogout, theme, themeMode, onToggleTheme, onRefreshUser, onNavigateSubscription }) {
   const [username, setUsername] = useState(user?.username || "");
   const [goal, setGoal] = useState(String(user?.dailyReadingGoalMinutes ?? 20)); // Restaurei o estado do goal
   const [isGoalModalOpen, setIsGoalModalOpen] = useState(false);
@@ -183,22 +183,6 @@ function ProfileScreen({ apiUrl, setApiUrl, user, onSaveApiUrl, onSaveGoal, onLo
         </Text>
         <PrimaryButton theme={theme} onPress={onNavigateSubscription} variant="primary">
           Plano de Assinatura
-        </PrimaryButton>
-      </View>
-
-      <View style={profileStyles.divider} />
-      
-      <View style={profileStyles.profileBox}>
-        <Text style={profileStyles.profileLabel}>Configurações de Rede</Text>
-        <Field
-          theme={theme}
-          label="Endereço do Backend"
-          value={apiUrl}
-          onChangeText={setApiUrl}
-          placeholder="http://10.0.2.2:8080"
-        />
-        <PrimaryButton theme={theme} onPress={onSaveApiUrl} variant="secondary">
-          Salvar URL
         </PrimaryButton>
       </View>
 

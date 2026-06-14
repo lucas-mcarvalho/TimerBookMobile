@@ -38,12 +38,8 @@ export async function clearSessionStorage() {
   ]);
 }
 
-export async function getStoredApiUrl() {
-  return AsyncStorage.getItem(STORAGE_KEYS.apiUrl);
-}
-
-export async function saveApiUrl(url) {
-  await AsyncStorage.setItem(STORAGE_KEYS.apiUrl, url);
+export async function clearStoredApiUrl() {
+  await AsyncStorage.removeItem(STORAGE_KEYS.apiUrl);
 }
 
 export async function getStoredTheme() {

@@ -135,21 +135,6 @@ const getAuthStyles = (theme = darkTheme) => StyleSheet.create({
     fontSize: 13,
     lineHeight: 18
   },
-  
-  // Configuração da API (Extra do mobile)
-  apiBox: {
-    marginTop: 24,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: theme.border,
-    borderRadius: 8,
-    backgroundColor: theme.background
-  },
-  apiTitle: {
-    color: theme.subtext,
-    fontWeight: "800",
-    marginBottom: 10
-  }
 });
 
 export default getAuthStyles;

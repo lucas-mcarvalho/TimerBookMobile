@@ -1,4 +1,4 @@
-export const WEB_URL = "http://192.168.10.102:5173";
+export const WEB_URL = (process.env.EXPO_PUBLIC_WEB_URL || "http://timerbook.com.br").replace(/\/+$/, "");
 
 export const tabs = [
   { key: "home", label: "Inicio" },

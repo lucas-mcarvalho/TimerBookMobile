@@ -8,16 +8,13 @@ import {
   Pressable,
   ScrollView,
   Text,
-  TextInput,
   UIManager,
   View
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
-import getGlobalStyles from "../styles/globalStyles";
 import getAuthStyles from "../styles/auth.styles";
-import { saveApiUrl, saveTokens } from "../utils/storage";
+import { saveTokens } from "../utils/storage";
 import { loginUser, registerUser } from "../api/timerbook";
-import { setRuntimeApiUrl } from "../api/client";
 import { getErrorMessage } from "../utils/helpers";
 import Field from "../components/common/Field";
 import PrimaryButton from "../components/common/PrimaryButton";
@@ -27,7 +24,7 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
-function AuthScreen({ apiUrl, setApiUrl, onAuthenticated, theme }) {
+function AuthScreen({ onAuthenticated, theme }) {
   const [mode, setMode] = useState("login");
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
@@ -36,7 +33,6 @@ function AuthScreen({ apiUrl, setApiUrl, onAuthenticated, theme }) {
   const [profilePhoto, setProfilePhoto] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  const globalStyles = getGlobalStyles(theme);
   const authStyles = getAuthStyles(theme);
 
   function toggleMode(newMode) {
@@ -54,17 +50,6 @@ function AuthScreen({ apiUrl, setApiUrl, onAuthenticated, theme }) {
     if (!result.canceled && result.assets?.[0]) {
       setProfilePhoto(result.assets[0]);
     }
-  }
- 
-  async function persistApiUrl() {
-    const cleanUrl = apiUrl.trim();
-    if (!cleanUrl) {
-      Alert.alert("API", "Informe a URL do backend.");
-      return;
-    }
-    await saveApiUrl(cleanUrl);
-    setRuntimeApiUrl(cleanUrl);
-    Alert.alert("API", "Endereco salvo.");
   }
  
   async function submit() {
@@ -178,22 +163,6 @@ function AuthScreen({ apiUrl, setApiUrl, onAuthenticated, theme }) {
           <PrimaryButton theme={theme} onPress={submit} disabled={loading}>
             {loading ? "Aguarde..." : mode === "login" ? "Entrar" : "Criar conta"}
           </PrimaryButton>
- 
-          <View style={authStyles.apiBox}>
-            <Text style={authStyles.apiTitle}>Backend</Text>
-            <TextInput
-              value={apiUrl}
-              onChangeText={setApiUrl}
-              autoCapitalize="none"
-              autoCorrect={false}
-              placeholder="http://10.0.2.2:8080"
-              placeholderTextColor={theme.subtext}
-              style={globalStyles.input}
-            />
-            <PrimaryButton theme={theme} onPress={persistApiUrl} variant="secondary">
-              Salvar endereco da API
-            </PrimaryButton>
-          </View>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>

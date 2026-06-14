@@ -1,7 +1,6 @@
 import { Platform } from "react-native";
 import {
   clearSessionStorage,
-  getStoredApiUrl,
   getStoredRefreshToken,
   getStoredToken,
   saveTokens
@@ -15,7 +14,11 @@ export function getDefaultApiUrl() {
   }
 
   if (Platform.OS === "android") {
-    return "http://192.168.10.102:8080";
+    return "http://timerbook.com.br:8080";
+  }
+
+  if (Platform.OS === "ios") {
+    return "http://timerbook.com.br:8080";
   }
 
   return "http://localhost:8080";
@@ -26,8 +29,7 @@ export async function getApiUrl() {
     return runtimeApiUrl;
   }
 
-  const storedUrl = await getStoredApiUrl();
-  runtimeApiUrl = storedUrl || getDefaultApiUrl();
+  runtimeApiUrl = getDefaultApiUrl();
   return runtimeApiUrl;
 }
 

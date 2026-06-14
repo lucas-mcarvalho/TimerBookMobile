@@ -15,10 +15,16 @@
       "supportsTablet": true
     },
     "android": {
-      "usesCleartextTraffic": true
+      "usesCleartextTraffic": true,
+      "package": "com.lucas.m.x.l.timerbookmobile"
     },
     "web": {
       "bundler": "metro"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "d396d6ca-f0ca-4557-aa3a-c10cc8e4d573"
+      }
     }
   }
 }

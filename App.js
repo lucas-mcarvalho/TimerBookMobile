@@ -37,12 +37,11 @@ import ProfileIcon from "./src/assets/ProfileIcon.svg";
 
 // --- API & Storage ---
 import {
+  clearStoredApiUrl,
   clearSessionStorage,
-  getStoredApiUrl,
   getStoredRefreshToken,
   getStoredTheme,
   getStoredToken,
-  saveApiUrl,
   saveTheme,
   saveTokens
 } from "./src/utils/storage";
@@ -163,21 +162,17 @@ export default function App() {
     };
   }, []);
  
-  // ── Boot: restore stored API URL + token + theme ──
+  // ── Boot: restore token + theme ──
   useEffect(() => {
     async function restore() {
-      const [storedApiUrl, token, storedTheme] = await Promise.all([
-        getStoredApiUrl(),
+      const [token, storedTheme] = await Promise.all([
         getStoredToken(),
         getStoredTheme()
       ]);
 
-      if (storedApiUrl) {
-        setApiUrl(storedApiUrl);
-        setRuntimeApiUrl(storedApiUrl);
-      } else {
-        setRuntimeApiUrl(apiUrl);
-      }
+      await clearStoredApiUrl();
+      setApiUrl(apiUrl);
+      setRuntimeApiUrl(apiUrl);
       
       if (storedTheme) {
         setThemeMode(storedTheme);
@@ -223,17 +218,6 @@ export default function App() {
  
   async function handleAuthenticated() {
     setAuthenticated(true);
-  }
- 
-  async function persistApiUrl() {
-    const cleanUrl = apiUrl.trim();
-    if (!cleanUrl) {
-      Alert.alert("API", "Informe a URL do backend.");
-      return;
-    }
-    await saveApiUrl(cleanUrl);
-    setRuntimeApiUrl(cleanUrl);
-    Alert.alert("API", "Endereco salvo.");
   }
  
   async function handleCreateBook() {
@@ -414,8 +398,6 @@ export default function App() {
         <ExpoStatusBar style={themeMode === "light" ? "dark" : "light"} />
         <AuthScreen
           theme={currentTheme}
-          apiUrl={apiUrl}
-          setApiUrl={setApiUrl}
           onAuthenticated={handleAuthenticated}
         />
       </SafeAreaView>
@@ -488,9 +470,7 @@ export default function App() {
                 onToggleTheme={toggleTheme}
                 onRefreshUser={loadAppData}
                 apiUrl={apiUrl}
-                setApiUrl={setApiUrl}
                 user={user}
-                onSaveApiUrl={persistApiUrl}
                 onSaveGoal={handleSaveGoal}
                 onLogout={logout}
                 onNavigateSubscription={() => setActiveTab('subscription')}

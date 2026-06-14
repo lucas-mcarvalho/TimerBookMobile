@@ -13,8 +13,13 @@ function Field({ label, value, onChangeText, secureTextEntry, isPassword, keyboa
     <View style={globalStyles.field}>
       <Text style={globalStyles.label}>{label}</Text>
       
-      {/* Usamos o estilo global do input como o fundo/borda, e o local para colocar lado a lado */}
-      <View style={[globalStyles.input, styles.inputContainer, multiline && globalStyles.textArea]}>
+      <View
+        style={[
+          globalStyles.input,
+          styles.inputContainer,
+          multiline ? globalStyles.textArea : styles.singleLineInputContainer
+        ]}
+      >
         
         <TextInput
           value={value}
@@ -24,8 +29,7 @@ function Field({ label, value, onChangeText, secureTextEntry, isPassword, keyboa
           placeholder={placeholder}
           placeholderTextColor={theme.subtext}
           multiline={multiline}
-          // O TextInput agora expande para ocupar o espaço, herdando a cor do tema
-          style={[styles.textInputBase, { color: theme.text }]} 
+          style={[styles.textInputBase, multiline && styles.multilineTextInput, { color: theme.text }]} 
         />
 
         {/* Só renderiza o olho se for marcado como isPassword */}
@@ -51,24 +55,32 @@ function Field({ label, value, onChangeText, secureTextEntry, isPassword, keyboa
   );
 }
 
-// Estilos complementares APENAS para organizar o olho do lado direito
 const styles = StyleSheet.create({
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 0, // Tiramos o padding do container para não empurrar o ícone
-    overflow: 'hidden',   // Garante que nada vaze das bordas
+    paddingHorizontal: 0,
+    overflow: 'hidden',
+  },
+  singleLineInputContainer: {
+    height: 48,
+    minHeight: 48,
   },
   textInputBase: {
     flex: 1,
-    paddingHorizontal: 16, // Mantemos o padding apenas na área digitável
-    height: '100%',
+    paddingHorizontal: 16,
+    paddingVertical: 0,
     minHeight: 48,
     fontSize: 16,
   },
+  multilineTextInput: {
+    minHeight: 110,
+    paddingVertical: 12,
+    textAlignVertical: 'top',
+  },
   iconButton: {
     paddingHorizontal: 12,
-    height: '100%',
+    alignSelf: 'stretch',
     justifyContent: 'center',
     alignItems: 'center',
   }
