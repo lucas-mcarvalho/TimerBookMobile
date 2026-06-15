@@ -97,6 +97,7 @@ export async function apiFetch(path, options = {}) {
   } = options;
 
   const baseUrl = await getApiUrl();
+  const requestUrl = normalizeUrl(baseUrl, path);
   const token = skipAuth ? null : await getStoredToken();
   const requestHeaders = { ...headers };
 
@@ -108,11 +109,18 @@ export async function apiFetch(path, options = {}) {
     requestHeaders.Authorization = `Bearer ${token}`;
   }
 
-  const response = await fetch(normalizeUrl(baseUrl, path), {
-    method,
-    headers: requestHeaders,
-    body: multipart || typeof body === "string" ? body : JSON.stringify(body)
-  });
+  let response;
+
+  try {
+    response = await fetch(requestUrl, {
+      method,
+      headers: requestHeaders,
+      body: multipart || typeof body === "string" ? body : JSON.stringify(body)
+    });
+  } catch (error) {
+    error.requestUrl = requestUrl;
+    throw error;
+  }
 
   const data = await parseResponse(response);
 

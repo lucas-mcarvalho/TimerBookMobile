@@ -1,4 +1,8 @@
 export function getErrorMessage(error) {
+  if (error?.message === "Network request failed" && error?.requestUrl) {
+    return `Falha de rede ao acessar ${error.requestUrl}`;
+  }
+
   return error?.message || "Algo saiu do esperado. Tente novamente.";
 }
 
