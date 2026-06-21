@@ -3,7 +3,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 export const STORAGE_KEYS = {
   accessToken: "timerbook.accessToken",
   refreshToken: "timerbook.refreshToken",
-  apiUrl: "timerbook.apiUrl"
+  apiUrl: "timerbook.apiUrl",
+  theme: "timerbook.theme"
 };
 
 export async function getStoredToken() {
@@ -37,10 +38,14 @@ export async function clearSessionStorage() {
   ]);
 }
 
-export async function getStoredApiUrl() {
-  return AsyncStorage.getItem(STORAGE_KEYS.apiUrl);
+export async function clearStoredApiUrl() {
+  await AsyncStorage.removeItem(STORAGE_KEYS.apiUrl);
 }
 
-export async function saveApiUrl(url) {
-  await AsyncStorage.setItem(STORAGE_KEYS.apiUrl, url);
+export async function getStoredTheme() {
+  return AsyncStorage.getItem(STORAGE_KEYS.theme);
+}
+
+export async function saveTheme(theme) {
+  await AsyncStorage.setItem(STORAGE_KEYS.theme, theme);
 }
