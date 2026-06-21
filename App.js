@@ -194,7 +194,7 @@ export default function App() {
   useEffect(() => {
     if (authenticated) loadAppData();
   }, [authenticated]);
- 
+
   async function loadAppData() {
     setRefreshing(true);
     try {
@@ -215,7 +215,7 @@ export default function App() {
       setRefreshing(false);
     }
   }
- 
+
   async function handleAuthenticated() {
     setAuthenticated(true);
   }
@@ -242,7 +242,7 @@ export default function App() {
       setSavingBook(false);
     }
   }
- 
+
   async function handleDeleteBook(book) {
     Alert.alert("Excluir livro", `Excluir "${getBookTitle(book)}"?`, [
       { text: "Cancelar", style: "cancel" },
@@ -260,20 +260,20 @@ export default function App() {
       }
     ]);
   }
- 
+
   // Opens the WebView reader
   async function handleStartBook(book, activeReading) {
     try {
-      
+
       const startPage = toNumber(activeReading?.currentPage, 0);
       const reading = await startReading(user.id, book.id, startPage);
       const sessions = await getSessionsByReadingId(reading.id);
       let currentSession = sortSessionsByStartDesc(sessions).find((item) => !item.endedAt);
- 
+
       if (!currentSession) {
         currentSession = await startReadingSession(reading.id, startPage);
       }
- 
+
       const token = await getStoredToken();
       const refreshToken = await getStoredRefreshToken();
       const readerBaseUrl = getReaderWebUrl(apiUrl);
@@ -297,7 +297,7 @@ export default function App() {
       Alert.alert("Leitura", getErrorMessage(error));
     }
   }
- 
+
   // Called when web app posts SESSION_END
   async function handleCloseReader(finalPage, alreadyFinished = false) {
     if (!readerSession?.sessionId) {
@@ -331,7 +331,7 @@ export default function App() {
       await loadAppData();
     }
   }
- 
+
   async function handleSaveGoal(goal) {
     const numericGoal = Number(goal);
     if (!Number.isFinite(numericGoal) || numericGoal < 0) {
@@ -350,7 +350,7 @@ export default function App() {
       Alert.alert("Meta", getErrorMessage(error));
     }
   }
- 
+
   async function logout() {
     await clearSessionStorage();
     setAuthenticated(false);
@@ -390,7 +390,7 @@ export default function App() {
       </SafeAreaView>
     );
   }
- 
+
   // ── Auth ──
   if (!authenticated) {
     return (
@@ -403,7 +403,7 @@ export default function App() {
       </SafeAreaView>
     );
   }
- 
+
   // ── Reader (fullscreen WebView overlay) ──
   if (readerSession) {
     return (
@@ -414,7 +414,7 @@ export default function App() {
       />
     );
   }
- 
+
   // ── Main App ──
   return (
     <SafeAreaView style={globalStyles.safeArea}>
