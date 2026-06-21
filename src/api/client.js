@@ -1,7 +1,6 @@
 import { Platform } from "react-native";
 import {
   clearSessionStorage,
-  getStoredApiUrl,
   getStoredRefreshToken,
   getStoredToken,
   saveTokens
@@ -15,7 +14,11 @@ export function getDefaultApiUrl() {
   }
 
   if (Platform.OS === "android") {
-    return "http://192.168.10.102:8080";
+    return "http://timerbook.com.br:8080";
+  }
+
+  if (Platform.OS === "ios") {
+    return "http://timerbook.com.br:8080";
   }
 
   return "http://localhost:8080";
@@ -26,8 +29,7 @@ export async function getApiUrl() {
     return runtimeApiUrl;
   }
 
-  const storedUrl = await getStoredApiUrl();
-  runtimeApiUrl = storedUrl || getDefaultApiUrl();
+  runtimeApiUrl = getDefaultApiUrl();
   return runtimeApiUrl;
 }
 
@@ -95,6 +97,7 @@ export async function apiFetch(path, options = {}) {
   } = options;
 
   const baseUrl = await getApiUrl();
+  const requestUrl = normalizeUrl(baseUrl, path);
   const token = skipAuth ? null : await getStoredToken();
   const requestHeaders = { ...headers };
 
@@ -106,11 +109,18 @@ export async function apiFetch(path, options = {}) {
     requestHeaders.Authorization = `Bearer ${token}`;
   }
 
-  const response = await fetch(normalizeUrl(baseUrl, path), {
-    method,
-    headers: requestHeaders,
-    body: multipart || typeof body === "string" ? body : JSON.stringify(body)
-  });
+  let response;
+
+  try {
+    response = await fetch(requestUrl, {
+      method,
+      headers: requestHeaders,
+      body: multipart || typeof body === "string" ? body : JSON.stringify(body)
+    });
+  } catch (error) {
+    error.requestUrl = requestUrl;
+    throw error;
+  }
 
   const data = await parseResponse(response);
 

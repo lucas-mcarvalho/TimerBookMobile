@@ -9,10 +9,22 @@ node_modules/
 dist/
 web-build/
 build/
+*.apk
+!timerbook.apk
+*.aab
+*.ipa
+
+# Native build/cache output
+android/.gradle/
+android/app/build/
+android/build/
+ios/build/
+DerivedData/
 
 # Environment and secret files
 .env
 .env.*
+..env
 !.env.example
 !.env.sample
 .envrc
@@ -43,5 +55,6 @@ pnpm-debug.log*
 # Local editor/tooling state
 .agents/
 .codex/
+.idea/
 .vscode/
 .DS_Store

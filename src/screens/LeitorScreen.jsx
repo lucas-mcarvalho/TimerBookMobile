@@ -4,7 +4,7 @@ import { WebView } from "react-native-webview";
 import { useRoute, useNavigation } from "@react-navigation/native";
 import { finishReadingSession } from "../api/timerbook";
 import { getStoredToken } from "../utils/storage";
-import { WEB_URL } from "../constants"; // "http://192.168.10.102:5173"
+import { WEB_URL } from "../utils/constants";
 
 export default function LeitorScreen() {
   const route = useRoute();

@@ -1,34 +1,48 @@
-import { StyleSheet, Text, View, TouchableOpacity, LayoutAnimation, Platform, UIManager } from 'react-native';
-
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
   ActivityIndicator,
   Alert,
-  FlatList,
-  Image,
-  KeyboardAvoidingView,
+  LayoutAnimation,
+  Platform,
   Pressable,
-  RefreshControl,
   SafeAreaView,
-  ScrollView,
   StatusBar,
-  TextInput
+  Text,
+  UIManager,
+  View,
+  Linking,
 } from "react-native";
-import { WebView } from "react-native-webview";
-import * as DocumentPicker from "expo-document-picker";
-import * as ImagePicker from "expo-image-picker";
 import { StatusBar as ExpoStatusBar } from "expo-status-bar";
-import HomeGuide from "./src/components/HomeGuide";
+import { Audio } from 'expo-av';
+
+// --- Styles ---
+import getGlobalStyles from "./src/styles/globalStyles";
+import { lightTheme, darkTheme } from "./src/styles/colors";
+
+// --- Screens & Components ---
+import AuthScreen from "./src/screens/AuthScreen";
+import HomeScreen from "./src/screens/HomeScreen";
+import LibraryScreen from "./src/screens/LibraryScreen";
+import NewBookScreen from "./src/screens/NewBookScreen";
+import ProfileScreen from "./src/screens/ProfileScreen";
+import AssinaturaScreen from "./src/screens/AssinaturaScreen";
+import ReaderScreen from "./src/components/Reader/ReaderScreen";
 import Estatisticas from "./src/components/estatisticas";
+
+// --- Icons ---
+import HomeIcon from "./src/assets/HomeIcon.svg";
+import BookIcon from "./src/assets/BookIcon.svg";
+import AddIcon from "./src/assets/AddIncon.svg";
+import ProfileIcon from "./src/assets/ProfileIcon.svg";
+
+// --- API & Storage ---
 import {
+  clearStoredApiUrl,
   clearSessionStorage,
-  getStoredApiUrl,
   getStoredRefreshToken,
+  getStoredTheme,
   getStoredToken,
-  saveApiUrl,
+  saveTheme,
   saveTokens
 } from "./src/utils/storage";
 import {
@@ -40,46 +54,25 @@ import {
   getGeneralStats,
   getMe,
   getSessionsByReadingId,
-  loginUser,
-  registerUser,
   startReading,
   startReadingSession,
   updateReadingGoal
 } from "./src/api/timerbook";
 import { getDefaultApiUrl, setRuntimeApiUrl } from "./src/api/client";
-import { formatDuration, formatTimer, toNumber } from "./src/utils/formatters";
 
-// ─── Constants ───────────────────────────────────────────────────────────────
-const WEB_URL = "http://192.168.10.102:5173";
+// --- Utils & Constants ---
+import { toNumber } from "./src/utils/formatters";
+import { WEB_URL, initialBookForm, tabs } from "./src/utils/constants";
+import {
+  getBookTitle,
+  getErrorMessage,
+  getReadingBookId,
+  sortSessionsByStartDesc
+} from "./src/utils/helpers";
 
-const tabs = [
-  { key: "home", label: "Inicio" },
-  { key: "library", label: "Livros" },
-  { key: "newBook", label: "Novo" },
-  { key: "profile", label: "Perfil" }
-];
-
-const initialBookForm = {
-  name: "",
-  description: "",
-  cover: null,
-  pdf: null
-};
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-function getErrorMessage(error) {
-  return error?.message || "Algo saiu do esperado. Tente novamente.";
-}
-
-function getBookTitle(book) {
-  return book?.name || book?.title || "Livro sem titulo";
-}
-
-function getBookCover(book, apiUrl) {
-  const cover = book?.coverUrl || book?.coverPath;
-  if (!cover) return null;
-  if (/^https?:\/\//i.test(cover)) return cover;
-  return `${apiUrl.replace(/\/+$/, "")}${cover.startsWith("/") ? cover : `/${cover}`}`;
+// --- Setup ---
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
 function getReaderWebUrl(apiUrl) {
@@ -92,7 +85,6 @@ function getReaderWebUrl(apiUrl) {
   return `${match[1]}:${process.env.EXPO_PUBLIC_WEB_PORT || "5173"}`;
 }
 
-// Deriva a URL do serviço Python de IA a partir do apiUrl (mesmo host, porta 8000)
 function getIaApiUrl(apiUrl) {
   const envUrl = process.env.EXPO_PUBLIC_IA_URL;
   if (envUrl) return envUrl.replace(/\/+$/, "");
@@ -102,695 +94,7 @@ function getIaApiUrl(apiUrl) {
 
   return `${match[1]}:${process.env.EXPO_PUBLIC_IA_PORT || "8000"}`;
 }
-
-function sortSessionsByStartDesc(sessions) {
-  return [...(Array.isArray(sessions) ? sessions : [])].sort(
-    (a, b) => new Date(b.startedAt || 0) - new Date(a.startedAt || 0)
-  );
-}
-
-function getReadingBookId(reading) {
-  return reading?.book?.id ?? reading?.bookId ?? reading?.book_id;
-}
-
-// ─── Shared UI Components ────────────────────────────────────────────────────
-function Field({ label, value, onChangeText, secureTextEntry, keyboardType, placeholder, multiline }) {
-  return (
-    <View style={styles.field}>
-      <Text style={styles.label}>{label}</Text>
-      <TextInput
-        value={value}
-        onChangeText={onChangeText}
-        secureTextEntry={secureTextEntry}
-        keyboardType={keyboardType}
-        placeholder={placeholder}
-        placeholderTextColor="#64748b"
-        multiline={multiline}
-        style={[styles.input, multiline && styles.textArea]}
-      />
-    </View>
-  );
-}
-
-function PrimaryButton({ children, onPress, disabled, variant = "primary" }) {
-  return (
-    <Pressable
-      onPress={onPress}
-      disabled={disabled}
-      style={({ pressed }) => [
-        styles.button,
-        variant === "secondary" && styles.secondaryButton,
-        variant === "danger" && styles.dangerButton,
-        disabled && styles.disabledButton,
-        pressed && !disabled && styles.pressedButton
-      ]}
-    >
-      <Text style={[styles.buttonText, variant === "secondary" && styles.secondaryButtonText]}>
-        {children}
-      </Text>
-    </Pressable>
-  );
-}
-
-function StatCard({ label, value }) {
-  return (
-    <View style={styles.statCard}>
-      <Text style={styles.statValue}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
-    </View>
-  );
-}
-
-function EmptyState({ title, description }) {
-  return (
-    <View style={styles.emptyState}>
-      <Text style={styles.emptyTitle}>{title}</Text>
-      <Text style={styles.emptyDescription}>{description}</Text>
-    </View>
-  );
-}
-
-// ─── Reader Screen (WebView) ──────────────────────────────────────────────────
-function ReaderScreen({ session, onClose }) {
-  const webviewRef = useRef(null);
-  const [webLoading, setWebLoading] = useState(true);
-
-  // Runs before the web app mounts, so auth and route state exist on mobile.
-  const injectedJS = `
-  (function () {
-    var token = ${JSON.stringify(session.token || "")};
-    var refreshToken = ${JSON.stringify(session.refreshToken || session.token || "")};
-    var apiUrl = ${JSON.stringify(session.apiUrl || "")};
-    var iaApiUrl = ${JSON.stringify(session.iaApiUrl || "")};
-    var routeState = ${JSON.stringify({
-      book: session.book,
-      sessionId: session.sessionId,
-      initialPage: session.initialPage
-    })};
-    var preferencesKey = ${JSON.stringify(
-      `timerbook-pdf-preferences-${session.book?.id || session.book?.dataPath || "livro"}`
-    )};
-    var mobilePreferences = {
-      viewMode: "single",
-      zoom: 0.85,
-      fitWidth: true,
-      visualMode: "normal",
-      textMode: false,
-      textSize: 18,
-      lineHeight: 1.7,
-      rotation: 0
-    };
-
-    if (token) {
-      localStorage.setItem("token", token);
-      localStorage.setItem("timerbook.accessToken", token);
-    }
-    if (refreshToken) {
-      localStorage.setItem("refreshToken", refreshToken);
-      localStorage.setItem("timerbook.refreshToken", refreshToken);
-    }
-    localStorage.setItem(preferencesKey, JSON.stringify(mobilePreferences));
-
-    window.history.replaceState(
-      Object.assign({}, window.history.state || {}, { usr: routeState }),
-      "",
-      window.location.href
-    );
-
-    function applyMobileStyles() {
-      if (!document.head) {
-        setTimeout(applyMobileStyles, 30);
-        return;
-      }
-      if (document.getElementById("timerbook-mobile-reader-style")) return;
-
-      var style = document.createElement("style");
-      style.id = "timerbook-mobile-reader-style";
-      style.textContent = [
-        // Topbar compacto
-        ".leitor-topbar{height:auto!important;min-height:52px!important;padding:8px 14px!important;gap:10px!important}",
-        ".leitor-book-title{max-width:140px!important;font-size:13px!important}",
-        ".leitor-page-nav{display:none!important}",
-
-        // Botão Assistente flutuante, mais baixo e fácil de tocar
-        ".leitor-ai-toggle{position:fixed!important;right:14px!important;bottom:14px!important;z-index:1100!important;display:flex!important;align-items:center!important;justify-content:center!important;min-width:50px!important;min-height:46px!important;padding:0 14px!important;font-size:12px!important;gap:6px!important;border-radius:999px!important;background:rgba(15,23,42,0.96)!important;border:1px solid rgba(99,102,241,0.45)!important;box-shadow:0 8px 24px rgba(0,0,0,0.38)!important}",
-        ".leitor-ai-toggle.active{background:#4f46e5!important;color:#ffffff!important;border-color:rgba(255,255,255,0.18)!important}",
-        ".leitor-back-btn{padding:6px 12px!important;font-size:12px!important}",
-
-        // PDF body
-        ".leitor-pdf-body{padding:8px!important;overflow:hidden!important}",
-
-        // ── Drawer da IA — lateral direita compacta no mobile ──
-        ".leitor-body{position:relative!important}",
-        ".leitor-drawer{position:fixed!important;top:180px!important;right:10px!important;bottom:150px!important;left:auto!important;width:min(54vw,220px)!important;max-width:none!important;height:auto!important;z-index:1000!important;opacity:0!important;transform:translateX(calc(100% + 12px))!important;transition:transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1),opacity 0.2s ease!important;border:1px solid rgba(255,255,255,0.08)!important;border-radius:14px!important;box-shadow:-10px 0 30px rgba(0,0,0,0.42)!important}",
-        ".leitor-drawer.open{width:min(54vw,220px)!important;max-width:none!important;transform:translateX(0)!important;opacity:1!important}",
-        ".leitor-drawer-inner{width:100%!important;height:100%!important;border-radius:14px!important;background:rgba(14, 21, 37, 0.98)!important}",
-
-        // Header do drawer mais compacto
-        ".leitor-drawer-header{padding:7px 10px!important}",
-        ".leitor-drawer-title{font-size:12px!important}",
-        ".leitor-context-info{display:none!important}",
-        ".leitor-status-badge{font-size:9px!important;padding:2px 6px!important}",
-
-        // Chat area
-        ".leitor-chat-area{padding:8px 10px!important;gap:7px!important}",
-        ".leitor-empty-state{min-height:80px!important;padding:8px 0!important;gap:8px!important}",
-        ".leitor-empty-icon{width:24px!important;height:24px!important}",
-        ".leitor-empty-text{font-size:12px!important;line-height:1.35!important}",
-        ".leitor-user-bubble,.leitor-ai-bubble{max-width:82%!important;padding:7px 9px!important;border-radius:12px!important}",
-        ".leitor-user-text,.leitor-ai-text{font-size:12px!important;line-height:1.35!important}",
-        ".leitor-bubble-label{font-size:8px!important;margin-bottom:3px!important}",
-
-        // Suggestion chips
-        ".leitor-chips{padding:0 10px 7px!important;gap:5px!important;flex-wrap:nowrap!important;overflow-x:auto!important}",
-        ".leitor-chip{flex:0 0 auto!important;font-size:10px!important;padding:5px 8px!important}",
-
-        // Input area
-        ".leitor-input-area{padding:7px 10px 9px!important}",
-        ".leitor-input-wrap{padding:6px 8px!important;gap:4px!important;border-radius:10px!important}",
-        ".leitor-textarea{font-size:12px!important;line-height:1.3!important;max-height:52px!important}",
-        ".leitor-hint{display:none!important}",
-        ".leitor-send-btn{min-height:26px!important;padding:5px 10px!important;font-size:11px!important}",
-
-        // PDF viewer e toolbar
-        ".pdf-viewer{width:100%!important;gap:6px!important}",
-        ".pdf-toolbar{padding:6px!important;gap:6px!important;border-radius:8px!important}",
-        ".pdf-toolbar-group{min-height:30px!important;padding:2px!important;gap:2px!important}",
-        ".pdf-toolbar button{min-width:30px!important;min-height:28px!important;padding:0 6px!important;font-size:11px!important}",
-        ".pdf-page-jump,.pdf-zoom-label,.pdf-search-count{font-size:11px!important}",
-        ".pdf-search,.pdf-toolbar-group[aria-label='Acessibilidade visual']{display:none!important}",
-        ".pdf-viewport{border-radius:8px!important}",
-        ".pdf-pages{gap:10px!important;padding:8px 0 24px!important}",
-        ".pdf-page-shell,.pdf-page-shell canvas{border-radius:4px!important;max-width:100%!important;height:auto!important}"
-      ].join("\\n");
-      document.head.appendChild(style);
-    }
-
-    applyMobileStyles();
-
-    // Reescreve URLs de XHR para o IP real do servidor (Java e Python)
-    function rewriteApiUrl(url) {
-      if (typeof url !== "string") return url;
-
-      // Backend Java (porta 8080)
-      if (apiUrl) {
-        url = url
-          .replace(/^http:\\/\\/localhost:8080/i, apiUrl)
-          .replace(/^http:\\/\\/127\\.0\\.0\\.1:8080/i, apiUrl)
-          .replace(/^http:\\/\\/10\\.0\\.2\\.2:8080/i, apiUrl);
-      }
-
-      // Serviço Python de IA (porta 8000)
-      if (iaApiUrl) {
-        url = url
-          .replace(/^http:\\/\\/localhost:8000/i, iaApiUrl)
-          .replace(/^http:\\/\\/127\\.0\\.0\\.1:8000/i, iaApiUrl)
-          .replace(/^http:\\/\\/10\\.0\\.2\\.2:8000/i, iaApiUrl);
-      }
-
-      return url;
-    }
-
-    var originalOpen = XMLHttpRequest.prototype.open;
-    var originalSend = XMLHttpRequest.prototype.send;
-
-    XMLHttpRequest.prototype.open = function () {
-      var args = Array.prototype.slice.call(arguments);
-      args[1] = rewriteApiUrl(args[1]);
-      this.__timerbookUrl = args[1];
-      return originalOpen.apply(this, args);
-    };
-
-    XMLHttpRequest.prototype.send = function (body) {
-      var isFinishRequest = /\\/reading-sessions\\/[^/]+\\/finish/.test(this.__timerbookUrl || "");
-      var finishPage = null;
-
-      if (isFinishRequest) {
-        try {
-          var parsedBody = typeof body === "string" ? JSON.parse(body) : null;
-          finishPage = parsedBody && parsedBody.endPage;
-        } catch (err) {}
-
-        this.addEventListener("load", function () {
-          if (this.status >= 200 && this.status < 300 && window.ReactNativeWebView) {
-            window.ReactNativeWebView.postMessage(JSON.stringify({
-              type: "SESSION_END",
-              page: finishPage,
-              alreadyFinished: true
-            }));
-          }
-        });
-      }
-
-      return originalSend.apply(this, arguments);
-    };
-
-    // Também reescreve fetch (caso a IA use fetch em vez de axios/XHR)
-    var originalFetch = window.fetch;
-    if (originalFetch) {
-      window.fetch = function (input, init) {
-        if (typeof input === "string") {
-          input = rewriteApiUrl(input);
-        } else if (input && input.url) {
-          input = new Request(rewriteApiUrl(input.url), input);
-        }
-        return originalFetch.call(this, input, init);
-      };
-    }
-  })();
-  true;
-`;
-  const handleMessage = (event) => {
-    try {
-      const { type, page, alreadyFinished } = JSON.parse(event.nativeEvent.data);
-      if (type === "SESSION_END") onClose(page, alreadyFinished);
-    } catch (err) {
-      console.error("WebView message error:", err);
-    }
-  };
-
-  return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#0b1221" }}>
-      <StatusBar barStyle="light-content" />
-      {webLoading && (
-        <View style={styles.readerLoading}>
-          <ActivityIndicator size="large" color="#2ecc71" />
-          <Text style={styles.readerLoadingText}>
-            Carregando {getBookTitle(session.book)}…
-          </Text>
-        </View>
-      )}
-      <WebView
-        ref={webviewRef}
-        source={{ uri: session.webUrl }}
-        injectedJavaScriptBeforeContentLoaded={injectedJS}
-        onLoadEnd={() => setWebLoading(false)}
-        onMessage={handleMessage}
-        style={{ flex: 1 }}
-        javaScriptEnabled
-        domStorageEnabled
-      />
-    </SafeAreaView>
-  );
-}
-
-// ─── Auth Screen ─────────────────────────────────────────────────────────────
-function AuthScreen({ apiUrl, setApiUrl, onAuthenticated }) {
-  const [mode, setMode] = useState("login");
-  const [username, setUsername] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [goal, setGoal] = useState("20");
-  const [profilePhoto, setProfilePhoto] = useState(null);
-  const [loading, setLoading] = useState(false);
-
-  function toggleMode(newMode) {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setMode(newMode);
-  }
-
-  async function pickProfilePhoto() {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8
-    });
-    if (!result.canceled && result.assets?.[0]) {
-      setProfilePhoto(result.assets[0]);
-    }
-  }
-
-  async function persistApiUrl() {
-    const cleanUrl = apiUrl.trim();
-    if (!cleanUrl) {
-      Alert.alert("API", "Informe a URL do backend.");
-      return;
-    }
-    await saveApiUrl(cleanUrl);
-    setRuntimeApiUrl(cleanUrl);
-    Alert.alert("API", "Endereco salvo.");
-  }
-
-  async function submit() {
-    if (!email.trim() || !password.trim()) {
-      Alert.alert("Campos obrigatorios", "Informe email e senha.");
-      return;
-    }
-    if (mode === "register" && !username.trim()) {
-      Alert.alert("Campos obrigatorios", "Informe seu nome de usuario.");
-      return;
-    }
-    setLoading(true);
-    try {
-      if (mode === "register") {
-        await registerUser({
-          username: username.trim(),
-          email: email.trim(),
-          password,
-          dailyReadingGoalMinutes: goal ? Number(goal) : undefined,
-          photo: profilePhoto
-        });
-        Alert.alert("Cadastro criado", "Agora faca login com sua conta.");
-        toggleMode("login");
-        return;
-      }
-      const response = await loginUser(email.trim(), password);
-      await saveTokens({ token: response.token, refreshToken: response.refreshToken });
-      onAuthenticated();
-    } catch (error) {
-      Alert.alert("TimerBook", getErrorMessage(error));
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-      style={styles.authContainer}
-    >
-      <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.authContent}>
-        <View style={styles.loginFormCard}>
-          <View style={styles.logoBlock}>
-            <View style={styles.brandMark}>
-              <Text style={styles.brandInitial}>T</Text>
-            </View>
-            <Text style={styles.authTitle}>TimerBook</Text>
-          </View>
-          <Text style={styles.authSubtitle}>Acesse sua biblioteca pessoal</Text>
-
-          <View style={styles.segmented}>
-            <Pressable
-              onPress={() => toggleMode("login")}
-              style={[styles.segment, mode === "login" && styles.segmentActive]}
-            >
-              <Text style={[styles.segmentText, mode === "login" && styles.segmentTextActive]}>
-                Entrar
-              </Text>
-            </Pressable>
-            <Pressable
-              onPress={() => toggleMode("register")}
-              style={[styles.segment, mode === "register" && styles.segmentActive]}
-            >
-              <Text style={[styles.segmentText, mode === "register" && styles.segmentTextActive]}>
-                Cadastrar
-              </Text>
-            </Pressable>
-          </View>
-
-          {mode === "register" && (
-            <>
-              <Pressable onPress={pickProfilePhoto} style={styles.profilePhotoPicker}>
-                {profilePhoto?.uri ? (
-                  <Image source={{ uri: profilePhoto.uri }} style={styles.profilePhotoPreview} />
-                ) : (
-                  <View style={styles.profilePhotoPlaceholder}>
-                    <Text style={styles.profilePhotoInitial}>
-                      {(username || email || "T").slice(0, 1).toUpperCase()}
-                    </Text>
-                  </View>
-                )}
-                <View style={styles.profilePhotoTextBox}>
-                  <Text style={styles.profilePhotoTitle}>Foto de perfil</Text>
-                  <Text style={styles.profilePhotoDescription}>
-                    {profilePhoto ? "Toque para trocar a imagem" : "Toque para escolher uma imagem"}
-                  </Text>
-                </View>
-              </Pressable>
-              <Field label="Usuario" value={username} onChangeText={setUsername} />
-            </>
-          )}
-
-          <Field
-            label="Email"
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            placeholder="voce@email.com"
-          />
-          <Field label="Senha" value={password} onChangeText={setPassword} secureTextEntry />
-          {mode === "register" && (
-            <Field
-              label="Meta diaria em minutos"
-              value={goal}
-              onChangeText={setGoal}
-              keyboardType="numeric"
-            />
-          )}
-
-          <PrimaryButton onPress={submit} disabled={loading}>
-            {loading ? "Aguarde..." : mode === "login" ? "Entrar" : "Criar conta"}
-          </PrimaryButton>
-
-          <View style={styles.apiBox}>
-            <Text style={styles.apiTitle}>Backend</Text>
-            <TextInput
-              value={apiUrl}
-              onChangeText={setApiUrl}
-              autoCapitalize="none"
-              autoCorrect={false}
-              placeholder="http://10.0.2.2:8080"
-              placeholderTextColor="#64748b"
-              style={styles.input}
-            />
-            <PrimaryButton onPress={persistApiUrl} variant="secondary">
-              Salvar endereco da API
-            </PrimaryButton>
-          </View>
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
-  );
-}
-
-// ─── Home Screen ─────────────────────────────────────────────────────────────
-function HomeScreen({ user, stats, inProgress, onRefresh, refreshing }) {
-  return (
-    <ScrollView
-      contentContainerStyle={styles.screenContent}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-    >
-      <Text style={styles.eyebrow}>Bem-vindo de volta</Text>
-      <Text style={styles.title}>{user?.username || "Leitor"}</Text>
-
-      <View style={styles.statsGrid}>
-        <StatCard label="Paginas lidas" value={stats?.pagesRead ?? 0} />
-        <StatCard label="Tempo total" value={formatDuration(stats?.totalSeconds)} />
-        <StatCard label="Sessoes" value={stats?.sessionsCount ?? 0} />
-        <StatCard label="Sequencia" value={`${stats?.currentStreakDays ?? 0} dias`} />
-      </View>
-
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Leituras em andamento</Text>
-      </View>
-
-      {inProgress.length === 0 ? (
-        <EmptyState
-          title="Nada em andamento"
-          description="Comece uma leitura pela biblioteca para acompanhar seu progresso."
-        />
-      ) : (
-        inProgress.map((reading) => (
-          <View key={String(reading.id)} style={styles.readingRow}>
-            <Text style={styles.readingTitle}>{getBookTitle(reading.book)}</Text>
-            <Text style={styles.readingMeta}>Pagina atual: {reading.currentPage ?? 0}</Text>
-          </View>
-        ))
-      )}
-    </ScrollView>
-  );
-}
-
-// ─── Library Screen ───────────────────────────────────────────────────────────
-function LibraryScreen({
-  apiUrl,
-  books,
-  inProgress,
-  onStartBook,
-  onDeleteBook,
-  onRefresh,
-  refreshing,
-  onViewStats
-}) {
-  const inProgressByBookId = useMemo(() => {
-    const map = new Map();
-    inProgress.forEach((reading) => {
-      const bookId = getReadingBookId(reading);
-      if (bookId) map.set(Number(bookId), reading);
-    });
-    return map;
-  }, [inProgress]);
-
-  return (
-    <FlatList
-      data={books}
-      keyExtractor={(item) => String(item.id)}
-      contentContainerStyle={styles.screenContent}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-      ListHeaderComponent={
-        <View style={styles.sectionHeader}>
-          <View>
-            <Text style={styles.eyebrow}>Biblioteca</Text>
-            <Text style={styles.title}>Meus livros</Text>
-          </View>
-        </View>
-      }
-      ListEmptyComponent={
-        <EmptyState
-          title="Sua biblioteca esta vazia"
-          description="Cadastre seu primeiro livro na aba Novo."
-        />
-      }
-      renderItem={({ item }) => {
-        const coverUrl = getBookCover(item, apiUrl);
-        const reading = inProgressByBookId.get(Number(item.id));
-        return (
-          <View style={styles.bookCard}>
-            {coverUrl ? (
-              <Image source={{ uri: coverUrl }} style={styles.cover} />
-            ) : (
-              <View style={styles.coverFallback}>
-                <Text style={styles.coverFallbackText}>{getBookTitle(item).slice(0, 1)}</Text>
-              </View>
-            )}
-            <View style={styles.bookInfo}>
-              <Text style={styles.bookTitle}>{getBookTitle(item)}</Text>
-              <Text numberOfLines={2} style={styles.bookDescription}>
-                {item.description || "Sem descricao cadastrada."}
-              </Text>
-              {reading && (
-                <Text style={styles.progressBadge}>
-                  Em andamento na pagina {reading.currentPage ?? 0}
-                </Text>
-              )}
-              <View style={styles.inlineActions}>
-                <Pressable onPress={() => onStartBook(item, reading)} style={styles.smallAction}>
-                  <Text style={styles.smallActionText}>Ler</Text>
-                </Pressable>
-
-                {reading && (
-                  <Pressable
-                    onPress={() => onViewStats(reading.id)}
-                    style={[styles.smallAction, { backgroundColor: '#3b82f6' }]}
-                  >
-                    <Text style={styles.smallActionText}>Estatísticas</Text>
-                  </Pressable>
-                )}
-
-                <Pressable onPress={() => onDeleteBook(item)} style={styles.smallDangerAction}>
-                  <Text style={styles.smallDangerText}>Excluir</Text>
-                </Pressable>
-              </View>
-            </View>
-          </View>
-        );
-      }}
-    />
-  );
-}
-
-// ─── New Book Screen ──────────────────────────────────────────────────────────
-function NewBookScreen({ form, setForm, onCreateBook, loading }) {
-  async function pickCover() {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      quality: 0.8
-    });
-    if (!result.canceled && result.assets?.[0]) {
-      setForm((current) => ({ ...current, cover: result.assets[0] }));
-    }
-  }
-
-  async function pickPdf() {
-    const result = await DocumentPicker.getDocumentAsync({
-      type: "application/pdf",
-      copyToCacheDirectory: true
-    });
-    if (!result.canceled) {
-      const asset = result.assets?.[0] || result;
-      setForm((current) => ({ ...current, pdf: asset }));
-    }
-  }
-
-  return (
-    <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.screenContent}>
-      <Text style={styles.eyebrow}>Cadastro</Text>
-      <Text style={styles.title}>Novo livro</Text>
-      <Field
-        label="Nome"
-        value={form.name}
-        onChangeText={(value) => setForm((current) => ({ ...current, name: value }))}
-      />
-      <Field
-        label="Descricao"
-        value={form.description}
-        onChangeText={(value) => setForm((current) => ({ ...current, description: value }))}
-        multiline
-      />
-      <View style={styles.fileRow}>
-        <Pressable onPress={pickCover} style={styles.fileButton}>
-          <Text style={styles.fileButtonText}>
-            {form.cover ? "Capa selecionada" : "Selecionar capa"}
-          </Text>
-        </Pressable>
-        <Pressable onPress={pickPdf} style={styles.fileButton}>
-          <Text style={styles.fileButtonText}>
-            {form.pdf ? "PDF selecionado" : "Selecionar PDF"}
-          </Text>
-        </Pressable>
-      </View>
-      <PrimaryButton onPress={onCreateBook} disabled={loading}>
-        {loading ? "Salvando..." : "Salvar livro"}
-      </PrimaryButton>
-    </ScrollView>
-  );
-}
-
-// ─── Profile Screen ───────────────────────────────────────────────────────────
-function ProfileScreen({ apiUrl, setApiUrl, user, onSaveApiUrl, onSaveGoal, onLogout }) {
-  const [goal, setGoal] = useState(String(user?.dailyReadingGoalMinutes ?? 20));
-
-  useEffect(() => {
-    setGoal(String(user?.dailyReadingGoalMinutes ?? 20));
-  }, [user?.dailyReadingGoalMinutes]);
-
-  return (
-    <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.screenContent}>
-      <Text style={styles.eyebrow}>Conta</Text>
-      <Text style={styles.title}>{user?.username || "Perfil"}</Text>
-      <View style={styles.profileBox}>
-        <Text style={styles.profileLabel}>Email</Text>
-        <Text style={styles.profileValue}>{user?.email || "-"}</Text>
-      </View>
-      <Field
-        label="Meta diaria em minutos"
-        value={goal}
-        onChangeText={setGoal}
-        keyboardType="numeric"
-      />
-      <PrimaryButton onPress={() => onSaveGoal(goal)} variant="secondary">
-        Atualizar meta
-      </PrimaryButton>
-      <View style={styles.divider} />
-      <Field
-        label="Endereco do backend"
-        value={apiUrl}
-        onChangeText={setApiUrl}
-        placeholder="http://10.0.2.2:8080"
-      />
-      <PrimaryButton onPress={onSaveApiUrl} variant="secondary">
-        Salvar API
-      </PrimaryButton>
-      <PrimaryButton onPress={onLogout} variant="danger">
-        Sair
-      </PrimaryButton>
-    </ScrollView>
-  );
-}
-
-// ─── App Root ─────────────────────────────────────────────────────────────────
+ 
 export default function App() {
   const [booting, setBooting] = useState(true);
   const [authenticated, setAuthenticated] = useState(false);
@@ -804,27 +108,89 @@ export default function App() {
   const [bookForm, setBookForm] = useState(initialBookForm);
   const [savingBook, setSavingBook] = useState(false);
   const [statsReadingId, setStatsReadingId] = useState(null);
+ 
+  // ── Theme state ──
+  const [themeMode, setThemeMode] = useState("dark");
+  const currentTheme = themeMode === "light" ? lightTheme : darkTheme;
+  const globalStyles = getGlobalStyles(currentTheme);
 
   // ── Reader state (replaces ReadingSessionPanel) ──
   const [readerSession, setReaderSession] = useState(null);
+  const flipSoundRef = useRef(null);
+  const notificationSoundRef = useRef(null);
 
-  // ── Boot: restore stored API URL + token ──
+  useEffect(() => {
+    let mounted = true;
+    async function loadFlipSound() {
+      try {
+        const { sound } = await Audio.Sound.createAsync(
+          require("./src/assets/sounds/slide.mp3")
+        );
+        if (mounted) flipSoundRef.current = sound;
+      } catch (err) {
+        console.warn("Não foi possível carregar o som:", err.message);
+      }
+    }
+    async function loadSounds() {
+      try {
+        const flip = await Audio.Sound.createAsync(require("./src/assets/sounds/slide.mp3"));
+        const notif = await Audio.Sound.createAsync(require("./src/assets/sounds/notificacao.mp3"));
+        if (mounted) {
+          flipSoundRef.current = flip.sound;
+          notificationSoundRef.current = notif.sound;
+        } else {
+          try { flip.sound.unloadAsync(); } catch (e) {}
+          try { notif.sound.unloadAsync(); } catch (e) {}
+        }
+      } catch (err) {
+        console.warn("Não foi possível carregar os sons:", err.message);
+      }
+    }
+
+    loadSounds();
+
+    return () => {
+      mounted = false;
+      if (flipSoundRef.current) {
+        try { flipSoundRef.current.unloadAsync(); } catch (e) {}
+        flipSoundRef.current = null;
+      }
+      if (notificationSoundRef.current) {
+        try { notificationSoundRef.current.unloadAsync(); } catch (e) {}
+        notificationSoundRef.current = null;
+      }
+    };
+  }, []);
+ 
+  // ── Boot: restore token + theme ──
   useEffect(() => {
     async function restore() {
-      const storedApiUrl = await getStoredApiUrl();
-      const token = await getStoredToken();
-      if (storedApiUrl) {
-        setApiUrl(storedApiUrl);
-        setRuntimeApiUrl(storedApiUrl);
-      } else {
-        setRuntimeApiUrl(apiUrl);
+      const [token, storedTheme] = await Promise.all([
+        getStoredToken(),
+        getStoredTheme()
+      ]);
+
+      await clearStoredApiUrl();
+      setApiUrl(apiUrl);
+      setRuntimeApiUrl(apiUrl);
+      
+      if (storedTheme) {
+        setThemeMode(storedTheme);
       }
+
       setAuthenticated(Boolean(token));
       setBooting(false);
     }
     restore();
   }, []);
-
+ 
+  async function toggleTheme() {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    const newMode = themeMode === "light" ? "dark" : "light";
+    setThemeMode(newMode);
+    await saveTheme(newMode);
+  }
+ 
   useEffect(() => {
     if (authenticated) loadAppData();
   }, [authenticated]);
@@ -853,18 +219,7 @@ export default function App() {
   async function handleAuthenticated() {
     setAuthenticated(true);
   }
-
-  async function persistApiUrl() {
-    const cleanUrl = apiUrl.trim();
-    if (!cleanUrl) {
-      Alert.alert("API", "Informe a URL do backend.");
-      return;
-    }
-    await saveApiUrl(cleanUrl);
-    setRuntimeApiUrl(cleanUrl);
-    Alert.alert("API", "Endereco salvo.");
-  }
-
+ 
   async function handleCreateBook() {
     if (!bookForm.name.trim()) {
       Alert.alert("Novo livro", "Informe o nome do livro.");
@@ -924,7 +279,7 @@ export default function App() {
       const readerBaseUrl = getReaderWebUrl(apiUrl);
       const iaApiUrl = getIaApiUrl(apiUrl);
       const webUrl = `${readerBaseUrl}/leitor?bookId=${encodeURIComponent(book.id)}&sessionId=${encodeURIComponent(currentSession.id)}&page=${encodeURIComponent(startPage)}&token=${encodeURIComponent(token || "")}`;
-
+ 
       setReaderSession({
         book: {
           ...book,
@@ -955,6 +310,19 @@ export default function App() {
           readerSession.sessionId,
           finalPage ?? readerSession.initialPage
         );
+        // Se finishReadingSession marcou o fim, tocar som de notificação (se carregado)
+        try {
+          if (notificationSoundRef.current) {
+            if (typeof notificationSoundRef.current.replayAsync === 'function') {
+              await notificationSoundRef.current.replayAsync();
+            } else {
+              await notificationSoundRef.current.setPositionAsync(0);
+              await notificationSoundRef.current.playAsync();
+            }
+          }
+        } catch (e) {
+          console.warn('Erro ao tocar som de notificação:', e.message);
+        }
       }
     } catch (err) {
       console.error("Erro ao encerrar sessão:", err.message);
@@ -994,16 +362,31 @@ export default function App() {
   }
 
   // Nova função de mudança de aba animada
-  function handleTabPress(key) {
+  async function handleTabPress(key) {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    try {
+      if (key !== activeTab && flipSoundRef.current) {
+        // replayAsync é suportado em versões recentes do expo-av
+        if (typeof flipSoundRef.current.replayAsync === "function") {
+          await flipSoundRef.current.replayAsync();
+        } else {
+          await flipSoundRef.current.setPositionAsync(0);
+          await flipSoundRef.current.playAsync();
+        }
+      }
+    } catch (e) {
+      // não bloquear a troca de aba por erro no som
+      console.warn("Erro ao tocar som:", e.message);
+    }
+
     setActiveTab(key);
   }
 
   if (booting) {
     return (
-      <SafeAreaView style={styles.loadingScreen}>
+      <SafeAreaView style={globalStyles.loadingScreen}>
         <ActivityIndicator color="#2ecc71" />
-        <Text style={styles.loadingText}>Carregando TimerBook...</Text>
+        <Text style={globalStyles.loadingText}>Carregando TimerBook...</Text>
       </SafeAreaView>
     );
   }
@@ -1011,11 +394,10 @@ export default function App() {
   // ── Auth ──
   if (!authenticated) {
     return (
-      <SafeAreaView style={styles.safeArea}>
-        <ExpoStatusBar style="light" />
+      <SafeAreaView style={globalStyles.safeArea}>
+        <ExpoStatusBar style={themeMode === "light" ? "dark" : "light"} />
         <AuthScreen
-          apiUrl={apiUrl}
-          setApiUrl={setApiUrl}
+          theme={currentTheme}
           onAuthenticated={handleAuthenticated}
         />
       </SafeAreaView>
@@ -1026,7 +408,8 @@ export default function App() {
   if (readerSession) {
     return (
       <ReaderScreen
-        session={readerSession}
+        theme={currentTheme}
+        session={{ ...readerSession, themeMode }}
         onClose={handleCloseReader}
       />
     );
@@ -1034,29 +417,33 @@ export default function App() {
 
   // ── Main App ──
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <ExpoStatusBar style="light" />
-
-      <View style={styles.appShell}>
+    <SafeAreaView style={globalStyles.safeArea}>
+      <ExpoStatusBar style={themeMode === "light" ? "dark" : "light"} />
+      
+      <View style={globalStyles.appShell}>
         {statsReadingId ? (
-          <Estatisticas
-            readingId={statsReadingId}
-            onBack={() => setStatsReadingId(null)}
+          <Estatisticas 
+            isDarkMode={themeMode === "dark"}
+            readingId={statsReadingId} 
+            onBack={() => setStatsReadingId(null)} 
           />
         ) : (
           <>
             {activeTab === "home" && (
               <HomeScreen
+                theme={currentTheme}
+                apiUrl={apiUrl}
                 user={user}
                 stats={stats}
                 inProgress={inProgress}
                 onRefresh={loadAppData}
                 refreshing={refreshing}
-                onNavigateProfile={() => setActiveTab("profile")}
+                onNavigateProfile={() => handleTabPress("profile")}
               />
             )}
             {activeTab === "library" && (
               <LibraryScreen
+                theme={currentTheme}
                 apiUrl={apiUrl}
                 books={books}
                 inProgress={inProgress}
@@ -1069,6 +456,7 @@ export default function App() {
             )}
             {activeTab === "newBook" && (
               <NewBookScreen
+                theme={currentTheme}
                 form={bookForm}
                 setForm={setBookForm}
                 onCreateBook={handleCreateBook}
@@ -1077,122 +465,68 @@ export default function App() {
             )}
             {activeTab === "profile" && (
               <ProfileScreen
+                theme={currentTheme}
+                themeMode={themeMode}
+                onToggleTheme={toggleTheme}
+                onRefreshUser={loadAppData}
                 apiUrl={apiUrl}
-                setApiUrl={setApiUrl}
                 user={user}
-                onSaveApiUrl={persistApiUrl}
                 onSaveGoal={handleSaveGoal}
                 onLogout={logout}
+                onNavigateSubscription={() => setActiveTab('subscription')}
+              />
+            )}
+
+            {activeTab === "subscription" && (
+              <AssinaturaScreen
+                theme={currentTheme}
+                subscription={user?.subscription || {}}
+                userInfo={user}
+                onSubscribe={async (planId) => {
+                  // Retorna uma URL de checkout para abrir no web
+                  return `${getReaderWebUrl(apiUrl)}/assinatura/checkout?plan=${encodeURIComponent(planId)}`;
+                }}
+                onManagePortal={() => {
+                  const url = `${getReaderWebUrl(apiUrl)}/assinatura/portal`;
+                  try { Linking.openURL(url); } catch (e) { console.warn('Não foi possível abrir portal:', e); }
+                }}
+                loading={false}
+                onBack={() => setActiveTab('profile')}
               />
             )}
           </>
         )}
       </View>
-
-      <View style={styles.tabBar}>
+ 
+      <View style={globalStyles.tabBar}>
         {tabs.map((tab) => {
           const active = tab.key === activeTab;
+
+          let Icon;
+          switch (tab.key) {
+            case "home": Icon = HomeIcon; break;
+            case "library": Icon = BookIcon; break;
+            case "newBook": Icon = AddIcon; break;
+            case "profile": Icon = ProfileIcon; break;
+            default: Icon = HomeIcon;
+          }
+
           return (
             <Pressable
               key={tab.key}
-              onPress={() => handleTabPress(tab.key)}
-              style={[styles.tab, active && styles.activeTab]}
+              onPress={() => handleTabPress(tab.key)} 
+              style={[globalStyles.tab, active && globalStyles.activeTab]}
             >
-              <Text style={[styles.tabText, active && styles.activeTabText]}>
-                {tab.label}
-              </Text>
+              <Icon 
+                width={24} 
+                height={24} 
+                color={active ? "#ffffff" : currentTheme.subtext} 
+              />
             </Pressable>
           );
         })}
       </View>
+
     </SafeAreaView>
   );
 }
-
-
-const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: "#0b1221", paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0 },
-  appShell: { flex: 1 },
-  loadingScreen: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#0b1221" },
-  loadingText: { marginTop: 12, color: "#a0aec0", fontSize: 15 },
-  screenContent: { padding: 20, paddingBottom: 112 },
-  authContainer: { flex: 1, backgroundColor: "#0b1221" },
-  authContent: { flexGrow: 1, justifyContent: "center", padding: 24 },
-  loginFormCard: { width: "100%", borderRadius: 20, borderWidth: 1, borderColor: "#1e2f4c", backgroundColor: "#121e31", padding: 24 },
-  logoBlock: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 14, marginBottom: 14 },
-  brandMark: { width: 58, height: 58, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: "#2b5292", borderWidth: 2, borderColor: "#1a365d" },
-  brandInitial: { color: "#ffffff", fontSize: 28, fontWeight: "900", letterSpacing: 1 },
-  authTitle: { color: "#ffffff", fontSize: 32, fontWeight: "800", textAlign: "center", letterSpacing: -0.5 },
-  authSubtitle: { color: "#94a3b8", fontSize: 16, lineHeight: 24, marginBottom: 32, textAlign: "center" },
-  segmented: { flexDirection: "row", backgroundColor: "#060b14", borderWidth: 1, borderColor: "#1e2f4c", borderRadius: 16, padding: 6, marginBottom: 24 },
-  segment: { flex: 1, minHeight: 44, alignItems: "center", justifyContent: "center", borderRadius: 10 },
-  segmentActive: { backgroundColor: "#2b5292", shadowColor: "#000", shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 4, elevation: 5 },
-  segmentText: { color: "#64748b", fontWeight: "600", letterSpacing: 0.5 },
-  segmentTextActive: { color: "#ffffff", fontWeight: "800" },
-  profilePhotoPicker: { minHeight: 84, borderWidth: 1.5, borderColor: "#2b5292", borderStyle: "dashed", borderRadius: 16, backgroundColor: "rgba(43, 82, 146, 0.05)", flexDirection: "row", alignItems: "center", gap: 16, padding: 16, marginBottom: 20 },
-  profilePhotoPreview: { width: 56, height: 56, borderRadius: 28, backgroundColor: "#121e31", shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 3, elevation: 3 },
-  profilePhotoPlaceholder: { width: 56, height: 56, borderRadius: 28, alignItems: "center", justifyContent: "center", backgroundColor: "#2b5292", borderWidth: 2, borderColor: "#1a365d" },
-  profilePhotoInitial: { color: "#ffffff", fontSize: 22, fontWeight: "800" },
-  profilePhotoTextBox: { flex: 1 },
-  profilePhotoTitle: { color: "#ffffff", fontSize: 16, fontWeight: "800", marginBottom: 4 },
-  profilePhotoDescription: { color: "#94a3b8", fontSize: 13, lineHeight: 18 },
-  field: { marginBottom: 14 },
-  label: { color: "#a0aec0", fontSize: 14, fontWeight: "700", marginBottom: 7 },
-  input: { minHeight: 48, borderWidth: 1, borderColor: "#1e2f4c", borderRadius: 8, color: "#ffffff", backgroundColor: "#0b1221", paddingHorizontal: 14, fontSize: 16 },
-  textArea: { minHeight: 104, paddingTop: 12, textAlignVertical: "top" },
-  button: { minHeight: 50, borderRadius: 8, alignItems: "center", justifyContent: "center", backgroundColor: "#2ecc71", paddingHorizontal: 18, marginTop: 8 },
-  secondaryButton: { backgroundColor: "#0b1221", borderWidth: 1, borderColor: "#1e2f4c" },
-  dangerButton: { backgroundColor: "#ff4757" },
-  disabledButton: { opacity: 0.6 },
-  pressedButton: { transform: [{ scale: 0.99 }] },
-  buttonText: { color: "#ffffff", fontSize: 16, fontWeight: "800" },
-  secondaryButtonText: { color: "#ffffff" },
-  eyebrow: { color: "#2ecc71", fontSize: 13, fontWeight: "800", textTransform: "uppercase", letterSpacing: 1.5 },
-  title: { color: "#ffffff", fontSize: 32, fontWeight: "800", marginTop: 4, marginBottom: 24, letterSpacing: -0.5 },
-  statsGrid: { flexDirection: "row", flexWrap: "wrap", gap: 16 },
-  statCard: { width: "47%", minHeight: 110, borderRadius: 16, backgroundColor: "#121e31", borderWidth: 1, borderColor: "#1e2f4c", padding: 16, justifyContent: "space-between", shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.25, shadowRadius: 5, elevation: 4 },
-  statValue: { color: "#ffffff", fontSize: 28, fontWeight: "900" },
-  statLabel: { color: "#a0aec0", fontSize: 13, fontWeight: "600", lineHeight: 18, marginTop: 8 },
-  sectionHeader: { marginTop: 24, marginBottom: 12 },
-  sectionTitle: { color: "#ffffff", fontSize: 20, fontWeight: "800" },
-  emptyState: { borderWidth: 1, borderColor: "#1e2f4c", borderRadius: 8, backgroundColor: "#121e31", padding: 18 },
-  emptyTitle: { color: "#ffffff", fontSize: 17, fontWeight: "800", marginBottom: 6 },
-  emptyDescription: { color: "#a0aec0", lineHeight: 21 },
-  readingRow: { padding: 14, borderRadius: 8, backgroundColor: "#121e31", borderWidth: 1, borderColor: "#1e2f4c", marginBottom: 10 },
-  readingTitle: { color: "#ffffff", fontWeight: "800", fontSize: 16 },
-  readingMeta: { color: "#a0aec0", marginTop: 5 },
-  bookCard: { flexDirection: "row", gap: 14, backgroundColor: "#121e31", borderWidth: 1, borderColor: "#1e2f4c", borderRadius: 8, padding: 12, marginBottom: 12 },
-  cover: { width: 76, height: 108, borderRadius: 6, backgroundColor: "#0b1221" },
-  coverFallback: { width: 76, height: 108, borderRadius: 6, alignItems: "center", justifyContent: "center", backgroundColor: "#2b5292" },
-  coverFallbackText: { color: "#ffffff", fontSize: 30, fontWeight: "800" },
-  bookInfo: { flex: 1 },
-  bookTitle: { color: "#ffffff", fontSize: 17, fontWeight: "800" },
-  bookDescription: { color: "#a0aec0", lineHeight: 20, marginTop: 5 },
-  progressBadge: { alignSelf: "flex-start", color: "#2ecc71", backgroundColor: "rgba(46, 204, 113, 0.1)", borderRadius: 6, paddingHorizontal: 8, paddingVertical: 5, marginTop: 8, fontSize: 12, fontWeight: "800" },
-  inlineActions: { flexDirection: "row", gap: 8, marginTop: 12 },
-  smallAction: { minHeight: 36, borderRadius: 8, alignItems: "center", justifyContent: "center", backgroundColor: "#2ecc71", paddingHorizontal: 16 },
-  smallActionText: { color: "#ffffff", fontWeight: "800" },
-  smallDangerAction: { minHeight: 36, borderRadius: 8, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255, 71, 87, 0.12)", paddingHorizontal: 16 },
-  smallDangerText: { color: "#ff4757", fontWeight: "800" },
-  fileRow: { flexDirection: "row", gap: 10, marginBottom: 12 },
-  fileButton: { flex: 1, minHeight: 48, borderRadius: 8, borderWidth: 1, borderColor: "#1e2f4c", backgroundColor: "#121e31", alignItems: "center", justifyContent: "center", paddingHorizontal: 10 },
-  fileButtonText: { color: "#ffffff", fontWeight: "800", textAlign: "center" },
-  profileBox: { borderRadius: 8, borderWidth: 1, borderColor: "#1e2f4c", backgroundColor: "#121e31", padding: 14, marginBottom: 18 },
-  profileLabel: { color: "#a0aec0", fontWeight: "700", marginBottom: 4 },
-  profileValue: { color: "#ffffff", fontSize: 16, fontWeight: "800" },
-  divider: { height: 1, backgroundColor: "#1e2f4c", marginVertical: 22 },
-  apiBox: { marginTop: 24, padding: 14, borderWidth: 1, borderColor: "#1e2f4c", borderRadius: 8, backgroundColor: "#0b1221" },
-  apiTitle: { color: "#a0aec0", fontWeight: "800", marginBottom: 10 },
-  tabBar: { position: "absolute", left: 14, right: 14, bottom: 14, minHeight: 64, borderRadius: 8, flexDirection: "row", backgroundColor: "#121e31", borderWidth: 1, borderColor: "#1e2f4c", padding: 6 },
-  tab: { flex: 1, alignItems: "center", justifyContent: "center", borderRadius: 6 },
-  activeTab: { backgroundColor: "#2b5292" },
-  tabText: { color: "#a0aec0", fontSize: 12, fontWeight: "800" },
-  activeTabText: { color: "#ffffff" },
-  readerLoading: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, alignItems: "center", justifyContent: "center", backgroundColor: "#0b1221", zIndex: 10 },
-  readerLoadingText: { color: "#a0aec0", fontSize: 14, marginTop: 12 },
-  sessionPanel: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(11, 18, 33, 0.82)", alignItems: "center", justifyContent: "center", padding: 20 },
-  sessionCard: { width: "100%", borderRadius: 8, backgroundColor: "#121e31", borderWidth: 1, borderColor: "#1e2f4c", padding: 18 },
-  sessionEyebrow: { color: "#2ecc71", fontWeight: "800", textTransform: "uppercase", letterSpacing: 0, marginBottom: 5 },
-  sessionTitle: { color: "#ffffff", fontSize: 22, fontWeight: "800" },
-  timer: { color: "#ffffff", fontSize: 42, fontWeight: "800", textAlign: "center", marginVertical: 18 }
-});
