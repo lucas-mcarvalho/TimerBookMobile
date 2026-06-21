@@ -28,6 +28,7 @@ o front-end web, a landing page e os demais servicos da aplicacao.
 | User Stories e prototipo | [Figma TimerBook](https://www.figma.com/design/dgX72w2shMIYEC9jvOFopp/TimerBook?node-id=1-5&p=f&t=HIWQvvAN6rVbJlLf-0) |
 | Repositorio principal | [TimerBook_PS](https://github.com/lucas-mcarvalho/TimerBook_PS) |
 | Repositorio mobile | [TimerBookMobile](https://github.com/lucas-mcarvalho/TimerBookMobile) |
+| Download do APK | [Baixar timerbook.apk](https://raw.githubusercontent.com/lucas-mcarvalho/TimerBookMobile/main/timerbook.apk) |
 
 ## Tecnologias
 
@@ -57,20 +58,24 @@ o front-end web, a landing page e os demais servicos da aplicacao.
 - Estatisticas de leitura.
 - Atualizacao da meta diaria de leitura.
 
-## APK
+## Baixar APK
 
-Quando o APK for disponibilizado no repositorio, ele deve ficar na raiz com o nome:
-
-```text
-timerbook.apk
-```
+<div align="center">
+  <a href="https://raw.githubusercontent.com/lucas-mcarvalho/TimerBookMobile/main/timerbook.apk">
+    <img src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/android/android-original.svg" alt="Baixar APK do TimerBook Mobile" width="76" />
+  </a>
+  <br />
+  <strong>Download do APK</strong>
+  <br />
+  <a href="https://raw.githubusercontent.com/lucas-mcarvalho/TimerBookMobile/main/timerbook.apk">Clique no icone ou aqui para baixar o timerbook.apk</a>
+</div>
 
 Esse arquivo serve para instalacao direta em dispositivos Android, sem precisar
 rodar o projeto localmente com Expo.
 
 Para instalar:
 
-1. Baixe o arquivo `timerbook.apk` deste repositorio.
+1. Clique no icone do Android ou no link acima para baixar o `timerbook.apk`.
 2. Envie o arquivo para um celular Android ou baixe diretamente pelo navegador do aparelho.
 3. Abra o APK no Android.
 4. Se o sistema bloquear a instalacao, habilite a permissao para instalar apps de fontes desconhecidas.
@@ -106,7 +111,7 @@ TimerBookMobile/
 ├── babel.config.js
 ├── package.json
 ├── package-lock.json
-├── timerbook.apk        # APK de instalacao, quando disponibilizado
+├── timerbook.apk        # APK de instalacao Android
 ├── src/
 │   ├── api/
 │   ├── components/
